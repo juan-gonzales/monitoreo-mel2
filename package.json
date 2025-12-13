@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc && mkdir -p dist/renderer && cp src/renderer/index.html dist/renderer/index.html && cp src/renderer/styles.css dist/renderer/styles.css",
     "start": "npm run build && electron .",
-    "lint": "echo 'Sin lint definido'"
+    "lint": "echo 'Sin lint definido'",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
   },
   "devDependencies": {
     "@types/electron": "1.6.12",
@@ -14,6 +16,7 @@
     "@types/pg": "8.11.6",
     "@types/pg-query-stream": "3.4.0",
     "electron": "27.1.2",
+    "electron-builder": "^24.13.3",
     "typescript": "5.4.5"
   },
   "dependencies": {
@@ -23,5 +26,23 @@
     "dotenv": "^17.2.3",
     "pg": "8.11.3",
     "pg-query-stream": "4.10.3"
+  },
+  "build": {
+    "appId": "com.tuempresa.monitoreomel",
+    "productName": "Monitoreo MEL",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    }
   }
 }

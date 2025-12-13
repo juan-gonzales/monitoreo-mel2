@@ -7,8 +7,9 @@ import {
   ParametrosDeConsulta
 } from './postgresClient';
 
-// Usa la ruta a la raíz del proyecto; en producción con Electron puede cambiar.
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Carga .env desde la raíz del proyecto en desarrollo y junto al ejecutable en producción portable.
+const appRoot = app.isPackaged ? path.dirname(process.execPath) : path.join(__dirname, '../..');
+dotenv.config({ path: path.join(appRoot, '.env') });
 
 // Pool de conexión compartido para toda la aplicación principal.
 const poolDeBaseDeDatos = construirPoolDeBaseDeDatos();
