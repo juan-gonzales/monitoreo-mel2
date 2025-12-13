@@ -22,12 +22,28 @@ body {
   display: grid;
   grid-template-columns: 260px 1fr;
   min-height: 100vh;
+  transition: grid-template-columns 0.2s ease-in-out;
+}
+
+.app-layout.menu-colapsado {
+  grid-template-columns: 72px 1fr;
 }
 
 .menu-lateral {
   background-color: #eef2ff;
   padding: 24px;
   border-right: 1px solid var(--borde-suave);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: padding 0.2s ease-in-out;
+}
+
+.menu-lateral__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .logo {
@@ -47,6 +63,49 @@ body {
   border-radius: 8px;
   margin-bottom: 8px;
   color: #4b5563;
+}
+
+.control-menu {
+  border: 1px solid var(--borde-suave);
+  background-color: white;
+  color: #111827;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.control-menu:hover {
+  background-color: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.control-menu:focus-visible {
+  outline: 2px solid var(--color-azul);
+  outline-offset: 2px;
+}
+
+.app-layout.menu-colapsado .menu-lateral {
+  padding: 16px 12px;
+  align-items: center;
+}
+
+.app-layout.menu-colapsado .menu-lateral__encabezado {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app-layout.menu-colapsado .logo,
+.app-layout.menu-colapsado .menu-lateral nav {
+  display: none;
+}
+
+.app-layout.menu-colapsado .control-menu {
+  width: 100%;
+  background-color: var(--color-azul);
+  color: white;
+  border-color: var(--color-azul);
 }
 
 .menu-lateral li.activo {

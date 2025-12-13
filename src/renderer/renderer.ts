@@ -73,6 +73,12 @@ type Grafico = InstanceType<ChartConstructor>;
 let graficoDuracionPromedio: Grafico | undefined;
 let graficoCantidadPorMinuto: Grafico | undefined;
 
+const appLayout = document.querySelector(".app-layout") as HTMLDivElement;
+const botonToggleMenu = document.getElementById(
+  "boton-toggle-menu"
+) as HTMLButtonElement;
+const CLASE_MENU_COLAPSADO = "menu-colapsado";
+
 const estadoDashboard: EstadoDashboard = {
   registrosCrudos: [],
   registrosFiltrados: [],
@@ -236,6 +242,24 @@ function leerArchivoComoTexto(archivo: File): Promise<string> {
     };
     lector.readAsText(archivo);
   });
+}
+
+/**
+ * Alterna la visibilidad del menú lateral para liberar espacio al contenido.
+ */
+function alternarMenuLateral(): void {
+  const menuEstaColapsado = appLayout.classList.toggle(CLASE_MENU_COLAPSADO);
+  botonToggleMenu.textContent = menuEstaColapsado
+    ? "Mostrar menú"
+    : "Ocultar menú";
+  botonToggleMenu.setAttribute(
+    "aria-label",
+    menuEstaColapsado ? "Mostrar menú lateral" : "Ocultar menú lateral"
+  );
+  botonToggleMenu.setAttribute(
+    "aria-expanded",
+    (!menuEstaColapsado).toString()
+  );
 }
 
 /**
@@ -615,4 +639,8 @@ inputArchivoCsv.addEventListener("change", () => {
 
 selectorAccion.addEventListener("change", () => {
   actualizarGraficosConFiltroSeleccionado();
+});
+
+botonToggleMenu.addEventListener("click", () => {
+  alternarMenuLateral();
 });
