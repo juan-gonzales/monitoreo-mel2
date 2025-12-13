@@ -27,6 +27,8 @@ npm install
 ```
 
 ## Ejecución
+Compila el código TypeScript a JavaScript en `dist/` y levanta la app Electron.
+
 ```bash
 npm start
 ```

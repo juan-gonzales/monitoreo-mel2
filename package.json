@@ -2,13 +2,19 @@
   "name": "monitoreo-mel2",
   "version": "0.1.0",
   "description": "Aplicación de monitoreo analítico basada en Electron para visualizar logs almacenados en PostgreSQL.",
-  "main": "src/main/main.js",
+  "main": "dist/main/main.js",
   "scripts": {
-    "start": "electron .",
+    "build": "tsc && mkdir -p dist/renderer && cp src/renderer/index.html dist/renderer/index.html && cp src/renderer/styles.css dist/renderer/styles.css",
+    "start": "npm run build && electron .",
     "lint": "echo 'Sin lint definido'"
   },
   "devDependencies": {
-    "electron": "27.1.2"
+    "@types/electron": "1.6.12",
+    "@types/node": "20.11.30",
+    "@types/pg": "8.11.6",
+    "@types/pg-query-stream": "3.4.0",
+    "electron": "27.1.2",
+    "typescript": "5.4.5"
   },
   "dependencies": {
     "chart.js": "4.4.3",
