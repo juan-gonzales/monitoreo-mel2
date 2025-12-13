@@ -32,6 +32,7 @@ function crearVentanaPrincipal(): void {
   });
 
   ventanaPrincipal.loadFile(path.join(__dirname, '../renderer/index.html'));
+  ventanaPrincipal.maximize();
 }
 
 /**
