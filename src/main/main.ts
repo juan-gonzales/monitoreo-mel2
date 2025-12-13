@@ -1,10 +1,14 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import dotenv from 'dotenv';
 import {
   construirPoolDeBaseDeDatos,
   consultarLogsPorRangoDeFechas,
   ParametrosDeConsulta
 } from './postgresClient';
+
+// Usa la ruta a la raíz del proyecto; en producción con Electron puede cambiar.
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Pool de conexión compartido para toda la aplicación principal.
 const poolDeBaseDeDatos = construirPoolDeBaseDeDatos();

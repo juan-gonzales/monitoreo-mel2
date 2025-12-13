@@ -7,7 +7,7 @@ export interface ParametrosDeConsulta {
 }
 
 export interface RegistroCrudo {
-  fecha_evento: string;
+  fecha: string;
   accion: string;
   tiempo: number | string;
 }
@@ -26,7 +26,8 @@ export function construirPoolDeBaseDeDatos(): Pool {
     database: process.env.POSTGRES_DATABASE || 'monitoreo',
     max: 10,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000
+    connectionTimeoutMillis: 10_000,
+    ssl: { rejectUnauthorized: false }
   });
 }
 
@@ -44,10 +45,10 @@ export async function consultarLogsPorRangoDeFechas(
 
   // Consulta directa en SQL, ordenada por tiempo para facilitar el cálculo por minuto en el renderer.
   const consultaSql = `
-    SELECT fecha_evento, accion, tiempo
-    FROM logs
-    WHERE fecha_evento >= $1 AND fecha_evento <= $2
-    ORDER BY fecha_evento ASC
+    SELECT fecha, accion, tiempo
+    FROM mel2.logacciones
+    WHERE fecha >= $1 AND fecha <= $2
+    ORDER BY fecha ASC
   `;
 
   const flujoDeConsulta = new QueryStream(consultaSql, [fechaInicioIso, fechaFinIso], {
@@ -59,8 +60,9 @@ export async function consultarLogsPorRangoDeFechas(
 
     await new Promise<void>((resolve, reject) => {
       streamDeResultados.on('data', (fila: RegistroCrudo) => {
+        
         registrosAcumulados.push({
-          fecha_evento: fila.fecha_evento,
+          fecha: fila.fecha,
           accion: fila.accion,
           tiempo: fila.tiempo
         });

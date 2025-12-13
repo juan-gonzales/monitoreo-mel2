@@ -1,11 +1,11 @@
 // Tipos locales declarados para mantener la legibilidad del renderer sin dependencias de importación en tiempo de ejecución.
 interface RegistroCrudo {
-  fecha_evento: string;
+  fecha: string;
   accion: string;
   tiempo: number | string;
 }
 
-type ChartConstructor = typeof import('chart.js')['Chart'];
+type ChartConstructor = typeof import("chart.js")["Chart"];
 
 // Chart se inyecta en el ámbito global mediante los scripts UMD declarados en index.html.
 declare const Chart: ChartConstructor;
@@ -23,7 +23,10 @@ interface EstadoDashboard {
 }
 
 interface ElectronAPI {
-  ejecutarConsultaDeLogs: (fechas: { fechaInicioIso: string; fechaFinIso: string }) => Promise<{
+  ejecutarConsultaDeLogs: (fechas: {
+    fechaInicioIso: string;
+    fechaFinIso: string;
+  }) => Promise<{
     registrosCrudos: RegistroCrudo[];
   }>;
 }
@@ -32,16 +35,32 @@ interface Window {
   electronAPI: ElectronAPI;
 }
 
-const botonConsultar = document.getElementById('boton-consultar') as HTMLButtonElement;
-const inputFechaInicio = document.getElementById('fecha-inicio') as HTMLInputElement;
-const inputFechaFin = document.getElementById('fecha-fin') as HTMLInputElement;
-const contenedorEstado = document.getElementById('estado-consulta') as HTMLDivElement;
-const contenedorGraficos = document.getElementById('contenedor-graficos') as HTMLDivElement;
-const contenedorFiltroAccion = document.getElementById('contenedor-filtro-accion') as HTMLDivElement;
-const selectorAccion = document.getElementById('filtro-accion') as HTMLSelectElement;
+const botonConsultar = document.getElementById(
+  "boton-consultar"
+) as HTMLButtonElement;
+const inputFechaInicio = document.getElementById(
+  "fecha-inicio"
+) as HTMLInputElement;
+const inputFechaFin = document.getElementById("fecha-fin") as HTMLInputElement;
+const contenedorEstado = document.getElementById(
+  "estado-consulta"
+) as HTMLDivElement;
+const contenedorGraficos = document.getElementById(
+  "contenedor-graficos"
+) as HTMLDivElement;
+const contenedorFiltroAccion = document.getElementById(
+  "contenedor-filtro-accion"
+) as HTMLDivElement;
+const selectorAccion = document.getElementById(
+  "filtro-accion"
+) as HTMLSelectElement;
 
-const lienzoGraficoDuracion = document.getElementById('grafico-duracion') as HTMLCanvasElement;
-const lienzoGraficoCantidad = document.getElementById('grafico-cantidad') as HTMLCanvasElement;
+const lienzoGraficoDuracion = document.getElementById(
+  "grafico-duracion"
+) as HTMLCanvasElement;
+const lienzoGraficoCantidad = document.getElementById(
+  "grafico-cantidad"
+) as HTMLCanvasElement;
 
 type Grafico = InstanceType<ChartConstructor>;
 
@@ -51,7 +70,7 @@ let graficoCantidadPorMinuto: Grafico | undefined;
 const estadoDashboard: EstadoDashboard = {
   registrosCrudos: [],
   registrosFiltrados: [],
-  accionesDisponibles: []
+  accionesDisponibles: [],
 };
 
 /**
@@ -59,7 +78,10 @@ const estadoDashboard: EstadoDashboard = {
  * Muestra feedback claro para los escenarios de carga, error, éxito o falta de datos.
  * Impacta en la percepción de estabilidad y en la confianza del usuario durante la consulta manual.
  */
-function mostrarEstadoDeConsulta(mensaje: string, tipo: 'info' | 'alerta' | 'error' | 'exito' = 'info'): void {
+function mostrarEstadoDeConsulta(
+  mensaje: string,
+  tipo: "info" | "alerta" | "error" | "exito" = "info"
+): void {
   contenedorEstado.textContent = mensaje;
   contenedorEstado.className = `estado ${tipo}`;
 }
@@ -74,7 +96,7 @@ function bloquearUIDuranteCarga(estaCargando: boolean): void {
   inputFechaInicio.disabled = estaCargando;
   inputFechaFin.disabled = estaCargando;
   selectorAccion.disabled = estaCargando;
-  botonConsultar.textContent = estaCargando ? 'Consultando...' : 'Consultar';
+  botonConsultar.textContent = estaCargando ? "Consultando..." : "Consultar";
 }
 
 /**
@@ -82,11 +104,13 @@ function bloquearUIDuranteCarga(estaCargando: boolean): void {
  * Normaliza la fecha a un objeto Date y asegura que el tiempo esté en número.
  * Impacta en la transformacion de datos previa a los cálculos de métricas.
  */
-function normalizarRegistroCrudo(registroCrudo: RegistroCrudo): RegistroNormalizado {
+function normalizarRegistroCrudo(
+  registroCrudo: RegistroCrudo
+): RegistroNormalizado {
   return {
-    fechaEvento: new Date(registroCrudo.fecha_evento),
+    fechaEvento: new Date(registroCrudo.fecha),
     accion: registroCrudo.accion,
-    tiempo: Number(registroCrudo.tiempo)
+    tiempo: Number(registroCrudo.tiempo),
   };
 }
 
@@ -96,20 +120,21 @@ function normalizarRegistroCrudo(registroCrudo: RegistroCrudo): RegistroNormaliz
  * Impacta en la navegabilidad y en el recalculo de gráficos sin tocar la base de datos.
  */
 function poblarFiltroAccion(): void {
-  selectorAccion.innerHTML = '';
-  const opcionTodas = document.createElement('option');
-  opcionTodas.value = 'todas';
-  opcionTodas.textContent = 'Todas las acciones';
+  selectorAccion.innerHTML = "";
+  const opcionTodas = document.createElement("option");
+  opcionTodas.value = "todas";
+  opcionTodas.textContent = "Todas las acciones";
   selectorAccion.appendChild(opcionTodas);
 
   estadoDashboard.accionesDisponibles.forEach((accion) => {
-    const opcion = document.createElement('option');
+    const opcion = document.createElement("option");
     opcion.value = accion;
     opcion.textContent = accion;
     selectorAccion.appendChild(opcion);
   });
 
-  contenedorFiltroAccion.hidden = estadoDashboard.accionesDisponibles.length === 0;
+  contenedorFiltroAccion.hidden =
+    estadoDashboard.accionesDisponibles.length === 0;
 }
 
 /**
@@ -131,8 +156,13 @@ function convertirTiempoASegundos(valorTiempo: number | string): number {
  * Retorna un mapa donde la llave es la marca de tiempo truncada al minuto en ISO.
  * Impacta en el rendimiento al permitir cálculos por lote en lugar de iterar múltiples veces.
  */
-function agruparRegistrosPorMinuto(registros: RegistroNormalizado[]): Map<string, { tiemposSegundos: number[]; conteo: number }> {
-  const agrupados = new Map<string, { tiemposSegundos: number[]; conteo: number }>();
+function agruparRegistrosPorMinuto(
+  registros: RegistroNormalizado[]
+): Map<string, { tiemposSegundos: number[]; conteo: number }> {
+  const agrupados = new Map<
+    string,
+    { tiemposSegundos: number[]; conteo: number }
+  >();
 
   registros.forEach((registro) => {
     const marcaPorMinuto = new Date(registro.fechaEvento);
@@ -141,10 +171,12 @@ function agruparRegistrosPorMinuto(registros: RegistroNormalizado[]): Map<string
 
     const agrupacionExistente = agrupados.get(claveMinuto) || {
       tiemposSegundos: [],
-      conteo: 0
+      conteo: 0,
     };
 
-    agrupacionExistente.tiemposSegundos.push(convertirTiempoASegundos(registro.tiempo));
+    agrupacionExistente.tiemposSegundos.push(
+      convertirTiempoASegundos(registro.tiempo)
+    );
     agrupacionExistente.conteo += 1;
 
     agrupados.set(claveMinuto, agrupacionExistente);
@@ -158,7 +190,9 @@ function agruparRegistrosPorMinuto(registros: RegistroNormalizado[]): Map<string
  * Separa claramente la obtención de datos (ya realizada) de la transformación para visualización.
  * Impacta en el rendimiento del renderer al trabajar con estructuras livianas.
  */
-function calcularMetricasParaGraficos(registrosFiltrados: RegistroNormalizado[]): {
+function calcularMetricasParaGraficos(
+  registrosFiltrados: RegistroNormalizado[]
+): {
   etiquetas: Date[];
   promediosPorMinuto: number[];
   conteosPorMinuto: number[];
@@ -177,7 +211,10 @@ function calcularMetricasParaGraficos(registrosFiltrados: RegistroNormalizado[])
       }
 
       const { tiemposSegundos, conteo } = agrupacion;
-      const sumaTiempos = tiemposSegundos.reduce((acumulado, valor) => acumulado + valor, 0);
+      const sumaTiempos = tiemposSegundos.reduce(
+        (acumulado, valor) => acumulado + valor,
+        0
+      );
       const promedio = conteo > 0 ? sumaTiempos / conteo : 0;
 
       etiquetas.push(new Date(claveMinuto));
@@ -193,52 +230,60 @@ function calcularMetricasParaGraficos(registrosFiltrados: RegistroNormalizado[])
  * Respeta la regla de eje Y con mínimo 7 y máximo dinámico según los valores presentes.
  * Impacta en la claridad visual de las métricas de rendimiento de la aplicación monitoreada.
  */
-function renderizarGraficoDeDuracion(etiquetas: Date[], promediosPorMinuto: number[]): void {
+function renderizarGraficoDeDuracion(
+  etiquetas: Date[],
+  promediosPorMinuto: number[]
+): void {
   if (graficoDuracionPromedio) {
     graficoDuracionPromedio.destroy();
   }
 
-  const maximoEnDatos = promediosPorMinuto.length > 0 ? Math.max(...promediosPorMinuto) : 0;
-  const limiteSuperior = maximoEnDatos > 7 ? maximoEnDatos : 7;
+  const maximoEnDatos =
+    promediosPorMinuto.length > 0 ? Math.max(...promediosPorMinuto) : 0;
+  const limiteSuperior = maximoEnDatos > 7 ? Math.ceil(maximoEnDatos) + 1 : 7;
 
   graficoDuracionPromedio = new Chart(lienzoGraficoDuracion, {
-    type: 'line',
+    type: "line",
     data: {
       labels: etiquetas,
       datasets: [
         {
-          label: 'Duración promedio (s)',
+          label: "Duración promedio (s)",
           data: promediosPorMinuto,
-          borderColor: '#1f6feb',
-          backgroundColor: 'rgba(31, 111, 235, 0.1)',
+          borderColor: "#1f6feb",
+          backgroundColor: "rgba(31, 111, 235, 0.1)",
           tension: 0.2,
-          pointRadius: 2
-        }
-      ]
+          pointRadius: 2,
+        },
+      ],
     },
     options: {
       responsive: true,
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: "index", intersect: false },
       scales: {
         x: {
-          type: 'time',
-          time: { unit: 'minute', tooltipFormat: 'yyyy-MM-dd HH:mm' },
-          ticks: { color: '#374151' },
-          grid: { color: '#e5e7eb' }
+          type: "time",
+          time: { unit: "minute", tooltipFormat: "yyyy-MM-dd HH:mm" },
+          ticks: { color: "#374151" },
+          grid: { color: "#e5e7eb" },
         },
         y: {
-          min: 7,
+          min: 1,
           max: limiteSuperior,
-          ticks: { color: '#374151' },
-          grid: { color: '#e5e7eb' }
-        }
+          ticks: {
+            color: "#374151",
+            stepSize: 1, // Incrementos de 1 entre los ticks
+            callback: (value) => value.toString(), // Asegura que los valores sean enteros
+          },
+          grid: { color: "#e5e7eb" },
+        },
       },
       plugins: {
         legend: {
-          labels: { color: '#111827' }
-        }
-      }
-    }
+          labels: { color: "#111827" },
+        },
+      },
+    },
   });
 }
 
@@ -247,46 +292,58 @@ function renderizarGraficoDeDuracion(etiquetas: Date[], promediosPorMinuto: numb
  * Mantiene el mismo eje X que el gráfico de duración para facilitar la comparación visual.
  * Impacta en la comprensión de volumen de actividad durante el rango seleccionado.
  */
-function renderizarGraficoDeConteo(etiquetas: Date[], conteosPorMinuto: number[]): void {
+function renderizarGraficoDeConteo(
+  etiquetas: Date[],
+  conteosPorMinuto: number[]
+): void {
   if (graficoCantidadPorMinuto) {
     graficoCantidadPorMinuto.destroy();
   }
 
+  const maximoEnDatos =
+    conteosPorMinuto.length > 0 ? Math.max(...conteosPorMinuto) : 0;
+  const limiteSuperior = maximoEnDatos + 1; // Encuentra el máximo y le suma 1
+
   graficoCantidadPorMinuto = new Chart(lienzoGraficoCantidad, {
-    type: 'bar',
+    type: "bar",
     data: {
       labels: etiquetas,
       datasets: [
         {
-          label: 'Transacciones por minuto',
+          label: "Transacciones por minuto",
           data: conteosPorMinuto,
-          backgroundColor: '#0d9488',
-          borderRadius: 2
-        }
-      ]
+          backgroundColor: "#0d9488",
+          borderRadius: 2,
+        },
+      ],
     },
     options: {
       responsive: true,
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: "index", intersect: false },
       scales: {
         x: {
-          type: 'time',
-          time: { unit: 'minute', tooltipFormat: 'yyyy-MM-dd HH:mm' },
-          ticks: { color: '#374151' },
-          grid: { color: '#e5e7eb' }
+          type: "time",
+          time: { unit: "minute", tooltipFormat: "yyyy-MM-dd HH:mm" },
+          ticks: { color: "#374151" },
+          grid: { color: "#e5e7eb" },
         },
         y: {
+          max: limiteSuperior,
           beginAtZero: true,
-          ticks: { color: '#374151' },
-          grid: { color: '#e5e7eb' }
-        }
+          ticks: {
+            color: "#374151",
+            stepSize: 1, // Incrementos de 1 entre los ticks
+            callback: (value) => value.toString(),
+          },
+          grid: { color: "#e5e7eb" },
+        },
       },
       plugins: {
         legend: {
-          labels: { color: '#111827' }
-        }
-      }
-    }
+          labels: { color: "#111827" },
+        },
+      },
+    },
   });
 }
 
@@ -298,28 +355,32 @@ function renderizarGraficoDeConteo(etiquetas: Date[], conteosPorMinuto: number[]
 function actualizarGraficosConFiltroSeleccionado(): void {
   const accionSeleccionada = selectorAccion.value;
 
-  estadoDashboard.registrosFiltrados = estadoDashboard.registrosCrudos.filter((registro) => {
-    if (accionSeleccionada === 'todas') {
-      return true;
-    }
+  estadoDashboard.registrosFiltrados = estadoDashboard.registrosCrudos.filter(
+    (registro) => {
+      if (accionSeleccionada === "todas") {
+        return true;
+      }
 
-    return registro.accion === accionSeleccionada;
-  });
+      return registro.accion === accionSeleccionada;
+    }
+  );
 
   if (estadoDashboard.registrosFiltrados.length === 0) {
-    mostrarEstadoDeConsulta('No hay datos para la acción seleccionada.', 'alerta');
+    mostrarEstadoDeConsulta(
+      "No hay datos para la acción seleccionada.",
+      "alerta"
+    );
     contenedorGraficos.hidden = true;
     return;
   }
 
-  const { etiquetas, promediosPorMinuto, conteosPorMinuto } = calcularMetricasParaGraficos(
-    estadoDashboard.registrosFiltrados
-  );
+  const { etiquetas, promediosPorMinuto, conteosPorMinuto } =
+    calcularMetricasParaGraficos(estadoDashboard.registrosFiltrados);
 
   contenedorGraficos.hidden = false;
   renderizarGraficoDeDuracion(etiquetas, promediosPorMinuto);
   renderizarGraficoDeConteo(etiquetas, conteosPorMinuto);
-  mostrarEstadoDeConsulta('Resultados listos.', 'exito');
+  mostrarEstadoDeConsulta("Resultados listos.", "exito");
 }
 
 /**
@@ -332,48 +393,62 @@ async function manejarConsulta(): Promise<void> {
   const fechaFin = inputFechaFin.value;
 
   if (!fechaInicio || !fechaFin) {
-    mostrarEstadoDeConsulta('Indique fecha inicio y fecha fin para consultar.', 'alerta');
+    mostrarEstadoDeConsulta(
+      "Indique fecha inicio y fecha fin para consultar.",
+      "alerta"
+    );
     return;
   }
 
   bloquearUIDuranteCarga(true);
   contenedorGraficos.hidden = true;
-  mostrarEstadoDeConsulta('Cargando datos (puede tardar hasta 2 minutos)...', 'info');
+  mostrarEstadoDeConsulta(
+    "Cargando datos (puede tardar hasta 2 minutos)...",
+    "info"
+  );
 
   try {
     const respuesta = await window.electronAPI.ejecutarConsultaDeLogs({
       fechaInicioIso: new Date(fechaInicio).toISOString(),
-      fechaFinIso: new Date(fechaFin).toISOString()
+      fechaFinIso: new Date(fechaFin).toISOString(),
     });
 
-    const registrosNormalizados = respuesta.registrosCrudos.map(normalizarRegistroCrudo);
+    const registrosNormalizados = respuesta.registrosCrudos.map(
+      normalizarRegistroCrudo
+    );
 
     if (registrosNormalizados.length === 0) {
-      mostrarEstadoDeConsulta('Sin datos para el rango seleccionado.', 'alerta');
+      mostrarEstadoDeConsulta(
+        "Sin datos para el rango seleccionado.",
+        "alerta"
+      );
       contenedorFiltroAccion.hidden = true;
       return;
     }
 
     estadoDashboard.registrosCrudos = registrosNormalizados;
-    const accionesUnicas = Array.from(new Set<string>(registrosNormalizados.map((registro) => registro.accion))).sort();
+    const accionesUnicas = Array.from(
+      new Set<string>(registrosNormalizados.map((registro) => registro.accion))
+    ).sort();
     estadoDashboard.accionesDisponibles = accionesUnicas;
 
     poblarFiltroAccion();
     actualizarGraficosConFiltroSeleccionado();
   } catch (error) {
-    console.error('Error durante la consulta manual:', error);
-    const mensaje = error instanceof Error ? error.message : 'Error desconocido';
-    mostrarEstadoDeConsulta(`Error al consultar: ${mensaje}`, 'error');
+    console.error("Error durante la consulta manual:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "Error desconocido";
+    mostrarEstadoDeConsulta(`Error al consultar: ${mensaje}`, "error");
     contenedorGraficos.hidden = true;
   } finally {
     bloquearUIDuranteCarga(false);
   }
 }
 
-botonConsultar.addEventListener('click', () => {
+botonConsultar.addEventListener("click", () => {
   void manejarConsulta();
 });
 
-selectorAccion.addEventListener('change', () => {
+selectorAccion.addEventListener("change", () => {
   actualizarGraficosConFiltroSeleccionado();
 });
