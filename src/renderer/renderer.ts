@@ -57,6 +57,12 @@ const contenedorGraficos = document.getElementById(
 const contenedorFiltroAccion = document.getElementById(
   "contenedor-filtro-accion"
 ) as HTMLDivElement;
+const botonCopiarGraficos = document.getElementById(
+  "boton-copiar-graficos"
+) as HTMLButtonElement;
+const textoBotonCopiar = botonCopiarGraficos.querySelector(
+  "span"
+) as HTMLSpanElement;
 const selectorAccion = document.getElementById(
   "filtro-accion"
 ) as HTMLSelectElement;
@@ -78,6 +84,13 @@ const botonToggleMenu = document.getElementById(
   "boton-toggle-menu"
 ) as HTMLButtonElement;
 const CLASE_MENU_COLAPSADO = "menu-colapsado";
+
+const ESTILO = getComputedStyle(document.documentElement);
+const COLOR_FONDO = ESTILO.getPropertyValue("--color-fondo").trim() || "#f5f5f5";
+const COLOR_PANEL = ESTILO.getPropertyValue("--color-panel").trim() || "#ffffff";
+const COLOR_BORDE = ESTILO.getPropertyValue("--borde-suave").trim() || "#e5e7eb";
+const COLOR_AZUL = ESTILO.getPropertyValue("--color-azul").trim() || "#1f6feb";
+const COLOR_ACENTO = ESTILO.getPropertyValue("--color-acento").trim() || "#0d9488";
 
 const estadoDashboard: EstadoDashboard = {
   registrosCrudos: [],
@@ -261,6 +274,166 @@ function alternarMenuLateral(): void {
     (!menuEstaColapsado).toString()
   );
 }
+
+/**
+ * Dibuja un rectángulo redondeado en un contexto canvas.
+ */
+function trazarRectRedondeado(
+  contexto: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  ancho: number,
+  alto: number,
+  radio = 12
+): void {
+  const r = Math.min(radio, ancho / 2, alto / 2);
+  contexto.beginPath();
+  contexto.moveTo(x + r, y);
+  contexto.lineTo(x + ancho - r, y);
+  contexto.quadraticCurveTo(x + ancho, y, x + ancho, y + r);
+  contexto.lineTo(x + ancho, y + alto - r);
+  contexto.quadraticCurveTo(x + ancho, y + alto, x + ancho - r, y + alto);
+  contexto.lineTo(x + r, y + alto);
+  contexto.quadraticCurveTo(x, y + alto, x, y + alto - r);
+  contexto.lineTo(x, y + r);
+  contexto.quadraticCurveTo(x, y, x + r, y);
+  contexto.closePath();
+}
+
+/**
+ * Convierte un canvas existente en un elemento imagen listo para dibujar en otro lienzo.
+ */
+async function imagenDesdeCanvas(
+  lienzo: HTMLCanvasElement
+): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    let dataUrl: string;
+    try {
+      dataUrl = lienzo.toDataURL("image/png");
+    } catch (error) {
+      reject(
+        new Error(
+          "No se pudo leer el gráfico porque el lienzo está marcado como tainted."
+        )
+      );
+      return;
+    }
+    const imagen = new Image();
+    imagen.onload = () => resolve(imagen);
+    imagen.onerror = () =>
+      reject(new Error("No se pudo leer el contenido del gráfico."));
+    imagen.src = dataUrl;
+  });
+}
+
+/**
+ * Construye un canvas que replica visualmente la sección de gráficos (sin usar foreignObject)
+ * combinando textos y los lienzos de Chart.js ya renderizados.
+ */
+async function construirImagenDeGraficos(): Promise<HTMLCanvasElement> {
+  const rectContenedor = contenedorGraficos.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(Math.round(rectContenedor.width * dpr), 1);
+  canvas.height = Math.max(Math.round(rectContenedor.height * dpr), 1);
+
+  const contexto = canvas.getContext("2d");
+  if (!contexto) {
+    throw new Error("No se pudo preparar el lienzo para exportar.");
+  }
+  contexto.scale(dpr, dpr);
+
+  // Fondo general
+  contexto.fillStyle = COLOR_FONDO || "#f5f5f5";
+  contexto.fillRect(0, 0, rectContenedor.width, rectContenedor.height);
+
+  const tarjetas = Array.from(
+    contenedorGraficos.querySelectorAll(".grafico")
+  ) as HTMLDivElement[];
+  for (const tarjeta of tarjetas) {
+    const rectTarjeta = tarjeta.getBoundingClientRect();
+    const x = rectTarjeta.left - rectContenedor.left;
+    const y = rectTarjeta.top - rectContenedor.top;
+    trazarRectRedondeado(
+      contexto,
+      x,
+      y,
+      rectTarjeta.width,
+      rectTarjeta.height,
+      12
+    );
+    contexto.fillStyle = COLOR_PANEL || "#ffffff";
+    contexto.fill();
+    contexto.strokeStyle = COLOR_BORDE || "#e5e7eb";
+    contexto.stroke();
+
+    const titulo = tarjeta.querySelector("h3")?.textContent ?? "";
+    const descripcion = tarjeta.querySelector("p")?.textContent ?? "";
+    contexto.fillStyle = "#111827";
+    contexto.font = "700 16px 'Inter', system-ui, sans-serif";
+    contexto.fillText(titulo, x + 16, y + 22);
+    contexto.fillStyle = "#4b5563";
+    contexto.font = "400 14px 'Inter', system-ui, sans-serif";
+    contexto.fillText(descripcion, x + 16, y + 42);
+
+    const lienzo = tarjeta.querySelector("canvas") as HTMLCanvasElement | null;
+    if (lienzo) {
+      const rectLienzo = lienzo.getBoundingClientRect();
+      const img = await imagenDesdeCanvas(lienzo);
+      const posX = rectLienzo.left - rectContenedor.left;
+      const posY = rectLienzo.top - rectContenedor.top;
+      const anchoVisible = rectLienzo.width;
+      const altoVisible = rectLienzo.height;
+      contexto.drawImage(img, posX, posY, anchoVisible, altoVisible);
+    }
+  }
+
+  return canvas;
+}
+
+async function copiarGraficosComoImagen(): Promise<void> {
+  if (contenedorGraficos.hidden) {
+    return;
+  }
+
+  if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+    mostrarEstadoDeConsulta(
+      "Tu entorno no permite copiar imágenes al portapapeles.",
+      "alerta"
+    );
+    return;
+  }
+
+  try {
+    botonCopiarGraficos.disabled = true;
+    textoBotonCopiar.textContent = "Copiando...";
+    const canvas = await construirImagenDeGraficos();
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((resultado) => {
+        if (resultado) {
+          resolve(resultado);
+        } else {
+          reject(new Error("No se pudo preparar la imagen para copiar."));
+        }
+      });
+    });
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "image/png": blob,
+      }),
+    ]);
+    mostrarEstadoDeConsulta("Gráficos copiados como imagen.", "exito");
+  } catch (error) {
+    console.error("Error al copiar gráficos:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "No se pudo copiar la imagen.";
+    mostrarEstadoDeConsulta(mensaje, "error");
+  } finally {
+    botonCopiarGraficos.disabled = false;
+    textoBotonCopiar.textContent = "Copiar";
+  }
+}
+
 
 /**
  * Convierte el contenido de un CSV en registros crudos con las columnas esperadas.
@@ -643,4 +816,8 @@ selectorAccion.addEventListener("change", () => {
 
 botonToggleMenu.addEventListener("click", () => {
   alternarMenuLateral();
+});
+
+botonCopiarGraficos.addEventListener("click", () => {
+  void copiarGraficosComoImagen();
 });

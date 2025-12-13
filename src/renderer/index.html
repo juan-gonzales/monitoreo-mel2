@@ -69,18 +69,31 @@
             <input type="file" id="archivo-csv" accept=".csv,text/csv" hidden />
             <div id="estado-consulta" class="estado"></div>
           </div>
+          <div class="graficos__barra">
+            <div>
+              <p class="graficos__titulo">Gráficos generados</p>
+              <p class="graficos__ayuda">Copia la vista actual como imagen para pegarla en informes.</p>
+            </div>
+            <button id="boton-copiar-graficos" class="boton-icono" type="button" aria-label="Copiar gráficos como imagen">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M8 3h10a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h10V9H5Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span>Copiar</span>
+            </button>
+          </div>
           <div class="graficos" id="contenedor-graficos" hidden>
             <div class="grafico">
               <header>
                 <h3>Duración promedio por minuto</h3>
-                <p>Duración calculada en segundos a partir del campo tiempo.</p>
               </header>
               <canvas id="grafico-duracion"></canvas>
             </div>
             <div class="grafico">
               <header>
                 <h3>Cantidad de transacciones por minuto</h3>
-                <p>Conteo por minuto usando el mismo eje temporal.</p>
               </header>
               <canvas id="grafico-cantidad"></canvas>
             </div>
