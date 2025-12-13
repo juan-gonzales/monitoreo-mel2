@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard de Monitoreo</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+    <script src="../../node_modules/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.js"></script>
+  </head>
+  <body>
+    <div class="app-layout">
+      <aside class="menu-lateral">
+        <h1 class="logo">Monitoreo MEL</h1>
+        <nav>
+          <ul>
+            <li class="activo">Dashboard</li>
+            <li>Consultas</li>
+            <li>Detalle de logs</li>
+            <li>Comparaciones</li>
+            <li>Salud del sistema</li>
+            <li>Configuración</li>
+          </ul>
+        </nav>
+      </aside>
+      <main class="contenido-principal">
+        <section class="panel">
+          <header>
+            <h2>Dashboard</h2>
+            <p class="subtitulo">Consulta manual y gráficos analíticos de los logs almacenados en PostgreSQL.</p>
+          </header>
+          <div class="filtros">
+            <div class="bloque-filtros">
+              <div class="campo-formulario">
+                <label for="fecha-inicio">Fecha inicio *</label>
+                <input type="datetime-local" id="fecha-inicio" />
+              </div>
+              <div class="campo-formulario">
+                <label for="fecha-fin">Fecha fin *</label>
+                <input type="datetime-local" id="fecha-fin" />
+              </div>
+              <div class="campo-formulario botonera">
+                <button id="boton-consultar" class="boton primario">Consultar</button>
+              </div>
+            </div>
+            <div class="bloque-filtros" id="contenedor-filtro-accion" hidden>
+              <div class="campo-formulario">
+                <label for="filtro-accion">Filtro Acción (no ejecuta consulta)</label>
+                <select id="filtro-accion"></select>
+              </div>
+            </div>
+            <div id="estado-consulta" class="estado"></div>
+          </div>
+          <div class="graficos" id="contenedor-graficos" hidden>
+            <div class="grafico">
+              <header>
+                <h3>Duración promedio por minuto</h3>
+                <p>Duración calculada en segundos a partir del campo tiempo.</p>
+              </header>
+              <canvas id="grafico-duracion"></canvas>
+            </div>
+            <div class="grafico">
+              <header>
+                <h3>Cantidad de transacciones por minuto</h3>
+                <p>Conteo por minuto usando el mismo eje temporal.</p>
+              </header>
+              <canvas id="grafico-cantidad"></canvas>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
