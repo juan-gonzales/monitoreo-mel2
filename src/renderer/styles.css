@@ -130,6 +130,12 @@ body {
   color: white;
 }
 
+.boton.secundario {
+  background-color: #e5e7eb;
+  color: #111827;
+  border-color: var(--borde-suave);
+}
+
 .estado {
   margin-top: 8px;
   font-size: 14px;
@@ -159,7 +165,7 @@ body {
 
 .graficos {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 24px;
   margin-top: 16px;
 }

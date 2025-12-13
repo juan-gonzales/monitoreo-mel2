@@ -38,10 +38,16 @@ interface Window {
 const botonConsultar = document.getElementById(
   "boton-consultar"
 ) as HTMLButtonElement;
+const botonCargarCsv = document.getElementById(
+  "boton-cargar-csv"
+) as HTMLButtonElement;
 const inputFechaInicio = document.getElementById(
   "fecha-inicio"
 ) as HTMLInputElement;
 const inputFechaFin = document.getElementById("fecha-fin") as HTMLInputElement;
+const inputArchivoCsv = document.getElementById(
+  "archivo-csv"
+) as HTMLInputElement;
 const contenedorEstado = document.getElementById(
   "estado-consulta"
 ) as HTMLDivElement;
@@ -91,12 +97,19 @@ function mostrarEstadoDeConsulta(
  * Evita que el usuario dispare múltiples consultas simultáneas o cambie filtros mientras se cargan datos.
  * Impacta en la experiencia de uso al prevenir bloqueos o estados inconsistentes.
  */
-function bloquearUIDuranteCarga(estaCargando: boolean): void {
+function bloquearUIDuranteCarga(
+  estaCargando: boolean,
+  origen: "consulta" | "csv" = "consulta"
+): void {
   botonConsultar.disabled = estaCargando;
+  botonCargarCsv.disabled = estaCargando;
   inputFechaInicio.disabled = estaCargando;
   inputFechaFin.disabled = estaCargando;
   selectorAccion.disabled = estaCargando;
   botonConsultar.textContent = estaCargando ? "Consultando..." : "Consultar";
+  botonCargarCsv.textContent = estaCargando
+    ? "Cargando CSV..."
+    : "Consultar por CSV";
 }
 
 /**
@@ -112,6 +125,50 @@ function normalizarRegistroCrudo(
     accion: registroCrudo.accion,
     tiempo: Number(registroCrudo.tiempo),
   };
+}
+
+/**
+ * Actualiza el estado interno y la UI a partir de registros crudos ya obtenidos.
+ * Se reutiliza tanto para consultas a base de datos como para archivos CSV.
+ * Impacta en la consistencia de la app al centralizar la lógica de carga de datos.
+ */
+function cargarRegistrosEnDashboard(
+  registrosCrudos: RegistroCrudo[],
+  mensajeExito: string,
+  mensajeSinDatos: string
+): void {
+  console.log(
+    "🚀 ~ cargarRegistrosEnDashboard ~ registrosCrudos:",
+    registrosCrudos
+  );
+  const registrosNormalizados = registrosCrudos
+    .map(normalizarRegistroCrudo)
+    .filter(
+      (registro) =>
+        !Number.isNaN(registro.fechaEvento.getTime()) &&
+        !Number.isNaN(registro.tiempo)
+    );
+  console.log(
+    "🚀 ~ cargarRegistrosEnDashboard ~ registrosNormalizados:",
+    registrosNormalizados
+  );
+
+  if (registrosNormalizados.length === 0) {
+    mostrarEstadoDeConsulta(mensajeSinDatos, "alerta");
+    contenedorGraficos.hidden = true;
+    contenedorFiltroAccion.hidden = true;
+    return;
+  }
+
+  estadoDashboard.registrosCrudos = registrosNormalizados;
+  const accionesUnicas = Array.from(
+    new Set<string>(registrosNormalizados.map((registro) => registro.accion))
+  ).sort();
+  estadoDashboard.accionesDisponibles = accionesUnicas;
+
+  poblarFiltroAccion();
+  actualizarGraficosConFiltroSeleccionado();
+  mostrarEstadoDeConsulta(mensajeExito, "exito");
 }
 
 /**
@@ -149,6 +206,86 @@ function convertirTiempoASegundos(valorTiempo: number | string): number {
   }
 
   return tiempoNumerico / 1000;
+}
+
+/**
+ * Detecta el delimitador del CSV de forma básica.
+ * Permite archivos separados por coma o punto y coma sin configurar opciones adicionales.
+ */
+function obtenerDelimitador(lineaCabecera: string): "," | ";" {
+  if (lineaCabecera.includes(";") && !lineaCabecera.includes(",")) {
+    return ";";
+  }
+
+  return ",";
+}
+
+/**
+ * Lee un archivo como texto usando FileReader y lo retorna como promesa.
+ */
+function leerArchivoComoTexto(archivo: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => {
+      resolve(typeof lector.result === "string" ? lector.result : "");
+    };
+    lector.onerror = () => {
+      reject(
+        lector.error || new Error("No se pudo leer el archivo seleccionado.")
+      );
+    };
+    lector.readAsText(archivo);
+  });
+}
+
+/**
+ * Convierte el contenido de un CSV en registros crudos con las columnas esperadas.
+ * Asume cabecera con los nombres de columna: fecha, accion, tiempo.
+ */
+function parsearCsvEnRegistros(contenido: string): RegistroCrudo[] {
+  const lineas = contenido
+    .split(/\r?\n/)
+    .map((linea) => linea.trim())
+    .filter((linea) => linea.length > 0);
+
+  if (lineas.length === 0) {
+    return [];
+  }
+
+  const delimitador = obtenerDelimitador(lineas[0]);
+  const cabeceras = lineas[0].split(delimitador).map((celda) => {
+    return celda.replace(/['"]/g, "").trim().toLowerCase();
+  });
+
+  const indiceFecha = cabeceras.findIndex((celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "fecha");
+  const indiceAccion = cabeceras.findIndex((celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "accion");
+  const indiceTiempo = cabeceras.findIndex((celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "tiempo");
+
+  const posicionFecha = indiceFecha >= 0 ? indiceFecha : 0;
+  const posicionAccion = indiceAccion >= 0 ? indiceAccion : 1;
+  const posicionTiempo = indiceTiempo >= 0 ? indiceTiempo : 2;
+
+  return lineas.slice(1).reduce<RegistroCrudo[]>((acumulado, linea) => {
+    const columnas = linea.split(delimitador).map((celda) => celda.replace(/['"]/g, "").trim().toLowerCase());
+
+    if (
+      columnas.length <= Math.max(posicionFecha, posicionAccion, posicionTiempo)
+    ) {
+      return acumulado;
+    }
+
+    const registro: RegistroCrudo = {
+      fecha: columnas[posicionFecha],
+      accion: columnas[posicionAccion],
+      tiempo: columnas[posicionTiempo],
+    };
+
+    if (registro.fecha && registro.accion && registro.tiempo) {
+      acumulado.push(registro);
+    }
+
+    return acumulado;
+  }, []);
 }
 
 /**
@@ -268,8 +405,8 @@ function renderizarGraficoDeDuracion(
           grid: { color: "#e5e7eb" },
         },
         y: {
-          min: 1,
           max: limiteSuperior,
+          beginAtZero: true,
           ticks: {
             color: "#374151",
             stepSize: 1, // Incrementos de 1 entre los ticks
@@ -413,27 +550,11 @@ async function manejarConsulta(): Promise<void> {
       fechaFinIso: new Date(fechaFin).toISOString(),
     });
 
-    const registrosNormalizados = respuesta.registrosCrudos.map(
-      normalizarRegistroCrudo
+    cargarRegistrosEnDashboard(
+      respuesta.registrosCrudos,
+      "Datos obtenidos de la base de datos.",
+      "Sin datos para el rango seleccionado."
     );
-
-    if (registrosNormalizados.length === 0) {
-      mostrarEstadoDeConsulta(
-        "Sin datos para el rango seleccionado.",
-        "alerta"
-      );
-      contenedorFiltroAccion.hidden = true;
-      return;
-    }
-
-    estadoDashboard.registrosCrudos = registrosNormalizados;
-    const accionesUnicas = Array.from(
-      new Set<string>(registrosNormalizados.map((registro) => registro.accion))
-    ).sort();
-    estadoDashboard.accionesDisponibles = accionesUnicas;
-
-    poblarFiltroAccion();
-    actualizarGraficosConFiltroSeleccionado();
   } catch (error) {
     console.error("Error durante la consulta manual:", error);
     const mensaje =
@@ -445,8 +566,51 @@ async function manejarConsulta(): Promise<void> {
   }
 }
 
+/**
+ * Maneja la carga de un archivo CSV y lo procesa como si fuera una consulta.
+ * Permite usar los gráficos y filtros existentes sin tocar la base de datos.
+ */
+async function manejarCargaCsv(): Promise<void> {
+  const archivo = inputArchivoCsv.files?.[0];
+  if (!archivo) {
+    return;
+  }
+
+  bloquearUIDuranteCarga(true, "csv");
+  contenedorGraficos.hidden = true;
+  mostrarEstadoDeConsulta(`Cargando ${archivo.name}...`, "info");
+
+  try {
+    const contenido = await leerArchivoComoTexto(archivo);
+    const registrosCrudos = parsearCsvEnRegistros(contenido);
+
+    cargarRegistrosEnDashboard(
+      registrosCrudos,
+      `Datos cargados desde ${archivo.name}.`,
+      "El CSV no tiene registros válidos."
+    );
+  } catch (error) {
+    console.error("Error durante la carga de CSV:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "No se pudo cargar el CSV.";
+    mostrarEstadoDeConsulta(`Error al cargar CSV: ${mensaje}`, "error");
+    contenedorGraficos.hidden = true;
+  } finally {
+    bloquearUIDuranteCarga(false);
+    inputArchivoCsv.value = "";
+  }
+}
+
 botonConsultar.addEventListener("click", () => {
   void manejarConsulta();
+});
+
+botonCargarCsv.addEventListener("click", () => {
+  inputArchivoCsv.click();
+});
+
+inputArchivoCsv.addEventListener("change", () => {
+  void manejarCargaCsv();
 });
 
 selectorAccion.addEventListener("change", () => {

@@ -43,6 +43,11 @@
               <div class="campo-formulario botonera">
                 <button id="boton-consultar" class="boton primario">Consultar</button>
               </div>
+              <div class="campo-formulario botonera">
+                <button id="boton-cargar-csv" class="boton secundario" type="button">
+                  Consultar por CSV
+                </button>
+              </div>
             </div>
             <div class="bloque-filtros" id="contenedor-filtro-accion" hidden>
               <div class="campo-formulario">
@@ -50,6 +55,7 @@
                 <select id="filtro-accion"></select>
               </div>
             </div>
+            <input type="file" id="archivo-csv" accept=".csv,text/csv" hidden />
             <div id="estado-consulta" class="estado"></div>
           </div>
           <div class="graficos" id="contenedor-graficos" hidden>
