@@ -1,0 +1,188 @@
+:root {
+  --color-fondo: #f5f5f5;
+  --color-texto: #1f2937;
+  --color-azul: #1f6feb;
+  --color-acento: #0d9488;
+  --color-panel: #ffffff;
+  --borde-suave: #e5e7eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.menu-lateral {
+  background-color: #eef2ff;
+  padding: 24px;
+  border-right: 1px solid var(--borde-suave);
+}
+
+.logo {
+  margin: 0 0 24px 0;
+  font-size: 20px;
+  color: var(--color-azul);
+}
+
+.menu-lateral ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu-lateral li {
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  color: #4b5563;
+}
+
+.menu-lateral li.activo {
+  background-color: var(--color-azul);
+  color: white;
+}
+
+.contenido-principal {
+  padding: 32px;
+}
+
+.panel {
+  background-color: var(--color-panel);
+  border: 1px solid var(--borde-suave);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.panel header h2 {
+  margin: 0 0 8px 0;
+}
+
+.subtitulo {
+  margin-top: 0;
+  color: #4b5563;
+}
+
+.filtros {
+  margin-top: 16px;
+  border-top: 1px solid var(--borde-suave);
+  padding-top: 16px;
+}
+
+.bloque-filtros {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.campo-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo-formulario label {
+  font-size: 14px;
+  color: #374151;
+}
+
+.campo-formulario input,
+.campo-formulario select {
+  padding: 10px 12px;
+  border: 1px solid var(--borde-suave);
+  border-radius: 8px;
+  min-width: 240px;
+  background-color: #f9fafb;
+}
+
+.campo-formulario input:disabled,
+.campo-formulario select:disabled {
+  background-color: #e5e7eb;
+}
+
+.botonera {
+  align-self: flex-end;
+}
+
+.boton {
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boton.primario {
+  background-color: var(--color-azul);
+  color: white;
+}
+
+.estado {
+  margin-top: 8px;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--borde-suave);
+  background-color: #f9fafb;
+}
+
+.estado.alerta {
+  background-color: #fff4e6;
+  color: #7c2d12;
+  border-color: #f97316;
+}
+
+.estado.error {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-color: #ef4444;
+}
+
+.estado.exito {
+  background-color: #ecfdf3;
+  color: #166534;
+  border-color: #22c55e;
+}
+
+.graficos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.grafico {
+  background-color: var(--color-panel);
+  border: 1px solid var(--borde-suave);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.grafico header h3 {
+  margin: 0 0 4px 0;
+}
+
+.grafico header p {
+  margin: 0;
+  color: #4b5563;
+}
+
+@media (max-width: 1100px) {
+  .graficos {
+    grid-template-columns: 1fr;
+  }
+}
