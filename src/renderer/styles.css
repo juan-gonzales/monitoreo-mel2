@@ -164,6 +164,7 @@ body {
 }
 
 .campo-formulario label {
+  padding-top: 10px;
   font-size: 14px;
   color: #374151;
 }

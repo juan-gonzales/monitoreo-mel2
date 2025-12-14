@@ -30,7 +30,6 @@
             <li>Consultas</li>
             <li>Detalle de logs</li>
             <li>Comparaciones</li>
-            <li>Salud del sistema</li>
             <li data-section="configuracion">Configuración</li>
           </ul>
         </nav>
@@ -60,6 +59,7 @@
                 </button>
               </div>
             </div>
+            <div id="estado-consulta" class="estado"></div>
             <div class="bloque-filtros" id="contenedor-filtro-accion" hidden>
               <div class="campo-formulario">
                 <label for="filtro-accion">Filtro Acción (no ejecuta consulta)</label>
@@ -67,7 +67,20 @@
               </div>
             </div>
             <input type="file" id="archivo-csv" accept=".csv,text/csv" hidden />
-            <div id="estado-consulta" class="estado"></div>
+          </div>
+          <div class="graficos" id="contenedor-graficos" hidden>
+            <div class="grafico">
+              <header>
+                <h3 id="titulo-grafico-duracion">Duración promedio por minuto</h3>
+              </header>
+              <canvas id="grafico-duracion"></canvas>
+            </div>
+            <div class="grafico">
+              <header>
+                <h3 id="titulo-grafico-conteo">Cantidad de transacciones por minuto</h3>
+              </header>
+              <canvas id="grafico-cantidad"></canvas>
+            </div>
           </div>
           <div class="graficos__barra">
             <div>
@@ -83,20 +96,6 @@
               </svg>
               <span>Copiar</span>
             </button>
-          </div>
-          <div class="graficos" id="contenedor-graficos" hidden>
-            <div class="grafico">
-              <header>
-                <h3 id="titulo-grafico-duracion">Duración promedio por minuto</h3>
-              </header>
-              <canvas id="grafico-duracion"></canvas>
-            </div>
-            <div class="grafico">
-              <header>
-                <h3 id="titulo-grafico-conteo">Cantidad de transacciones por minuto</h3>
-              </header>
-              <canvas id="grafico-cantidad"></canvas>
-            </div>
           </div>
         </section>
         <section id="seccion-configuracion" class="panel" hidden>
