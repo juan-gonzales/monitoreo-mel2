@@ -26,17 +26,17 @@
         </div>
         <nav>
           <ul>
-            <li class="activo">Dashboard</li>
+            <li class="activo" data-section="dashboard">Dashboard</li>
             <li>Consultas</li>
             <li>Detalle de logs</li>
             <li>Comparaciones</li>
             <li>Salud del sistema</li>
-            <li>Configuración</li>
+            <li data-section="configuracion">Configuración</li>
           </ul>
         </nav>
       </aside>
       <main class="contenido-principal">
-        <section class="panel">
+        <section id="seccion-dashboard" class="panel">
           <header>
             <h2>Dashboard</h2>
             <p class="subtitulo">Consulta manual y gráficos analíticos de los logs almacenados en PostgreSQL.</p>
@@ -98,6 +98,46 @@
               <canvas id="grafico-cantidad"></canvas>
             </div>
           </div>
+        </section>
+        <section id="seccion-configuracion" class="panel" hidden>
+          <header>
+            <h2>Configuración</h2>
+            <p class="subtitulo">
+              Edita las variables de conexión a PostgreSQL almacenadas en el archivo .env de la aplicación.
+            </p>
+          </header>
+          <div class="bloque-alerta" id="alerta-configuracion" hidden></div>
+          <form class="formulario-configuracion" id="formulario-configuracion">
+            <div class="campo-formulario">
+              <label for="config-host">POSTGRES_HOST</label>
+              <input id="config-host" name="host" type="text" autocomplete="off" />
+            </div>
+            <div class="campo-formulario">
+              <label for="config-port">POSTGRES_PORT</label>
+              <input id="config-port" name="port" type="number" min="1" step="1" inputmode="numeric" />
+            </div>
+            <div class="campo-formulario">
+              <label for="config-user">POSTGRES_USER</label>
+              <input id="config-user" name="user" type="text" autocomplete="username" />
+            </div>
+            <div class="campo-formulario">
+              <label for="config-password">POSTGRES_PASSWORD</label>
+              <input id="config-password" name="password" type="password" autocomplete="current-password" />
+            </div>
+            <div class="campo-formulario">
+              <label for="config-database">POSTGRES_DATABASE</label>
+              <input id="config-database" name="database" type="text" autocomplete="off" />
+            </div>
+            <div class="botonera-configuracion">
+              <button id="boton-guardar-configuracion" class="boton primario" type="submit">
+                Guardar configuración
+              </button>
+              <button id="boton-recargar-configuracion" class="boton secundario" type="button">
+                Recargar valores
+              </button>
+            </div>
+          </form>
+          <div id="estado-configuracion" class="estado"></div>
         </section>
       </main>
     </div>

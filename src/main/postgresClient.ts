@@ -12,19 +12,29 @@ export interface RegistroCrudo {
   tiempo: number | string;
 }
 
+export interface ConfiguracionBaseDeDatos {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+}
+
 /**
  * Construye el pool de conexiones a PostgreSQL usando variables de entorno.
  * Separa la configuración del resto de la lógica para facilitar la depuración y el despliegue.
  * Impacta en la estabilidad de la aplicación porque centraliza la reutilización de conexiones.
  */
-export function construirPoolDeBaseDeDatos(): Pool {
+export function construirPoolDeBaseDeDatos(
+  configuracion?: Partial<ConfiguracionBaseDeDatos>
+): Pool {
   return new Pool({
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: Number(process.env.POSTGRES_PORT || 5432),
-    user: process.env.POSTGRES_USER || 'postgres',
-    password: process.env.POSTGRES_PASSWORD || 'postgres',
-    database: process.env.POSTGRES_DATABASE || 'monitoreo',
-    max: 10,
+    host: configuracion?.host || process.env.POSTGRES_HOST || 'localhost',
+    port: Number(configuracion?.port ?? process.env.POSTGRES_PORT ?? 5432),
+    user: configuracion?.user || process.env.POSTGRES_USER || 'postgres',
+    password: configuracion?.password ?? process.env.POSTGRES_PASSWORD ?? 'postgres',
+    database: configuracion?.database || process.env.POSTGRES_DATABASE || 'monitoreo',
+    max: 1,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
     ssl: { rejectUnauthorized: false }

@@ -66,6 +66,11 @@ body {
   border-radius: 8px;
   margin-bottom: 8px;
   color: #4b5563;
+  cursor: default;
+}
+
+.menu-lateral li[data-section] {
+  cursor: pointer;
 }
 
 .control-menu {
@@ -316,6 +321,30 @@ body {
   width: 100% !important;
   height: auto !important;
   display: block;
+}
+
+.formulario-configuracion {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.botonera-configuracion {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.bloque-alerta {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed #f97316;
+  background-color: #fff4e6;
+  color: #7c2d12;
 }
 
 @media (max-width: 1100px) {

@@ -1,18 +1,89 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
+import fs from 'fs/promises';
 import path from 'path';
 import dotenv from 'dotenv';
 import {
   construirPoolDeBaseDeDatos,
   consultarLogsPorRangoDeFechas,
+  ConfiguracionBaseDeDatos,
   ParametrosDeConsulta
 } from './postgresClient';
 
 // Carga .env desde la raíz del proyecto en desarrollo y junto al ejecutable en producción portable.
 const appRoot = app.isPackaged ? path.dirname(process.execPath) : path.join(__dirname, '../..');
-dotenv.config({ path: path.join(appRoot, '.env') });
+const rutaEnv = path.join(appRoot, '.env');
+dotenv.config({ path: rutaEnv });
 
-// Pool de conexión compartido para toda la aplicación principal.
-const poolDeBaseDeDatos = construirPoolDeBaseDeDatos();
+const CONFIGURACION_POR_DEFECTO: ConfiguracionBaseDeDatos = {
+  host: process.env.POSTGRES_HOST || 'localhost',
+  port: Number(process.env.POSTGRES_PORT || 5432),
+  user: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD ?? 'postgres',
+  database: process.env.POSTGRES_DATABASE || 'monitoreo'
+};
+
+type ConfiguracionBaseDeDatosEntrada = Partial<
+  Omit<ConfiguracionBaseDeDatos, 'port'> & { port?: string | number }
+>;
+
+function normalizarConfiguracion(
+  configuracion: ConfiguracionBaseDeDatosEntrada
+): ConfiguracionBaseDeDatos {
+  const puerto = Number(configuracion.port ?? CONFIGURACION_POR_DEFECTO.port);
+
+  return {
+    host: configuracion.host?.toString().trim() || CONFIGURACION_POR_DEFECTO.host,
+    port: Number.isFinite(puerto) && puerto > 0 ? puerto : CONFIGURACION_POR_DEFECTO.port,
+    user: configuracion.user?.toString().trim() || CONFIGURACION_POR_DEFECTO.user,
+    password:
+      configuracion.password !== undefined ? configuracion.password : CONFIGURACION_POR_DEFECTO.password,
+    database: configuracion.database?.toString().trim() || CONFIGURACION_POR_DEFECTO.database
+  };
+}
+
+function prepararConfiguracionParaRenderer(
+  configuracion: ConfiguracionBaseDeDatos
+): ConfiguracionBaseDeDatosEntrada {
+  return {
+    ...configuracion,
+    port: configuracion.port.toString()
+  };
+}
+
+let configuracionEnMemoria: ConfiguracionBaseDeDatos = { ...CONFIGURACION_POR_DEFECTO };
+let existeArchivoEnv = false;
+
+function actualizarVariablesDeProceso(configuracion: ConfiguracionBaseDeDatos): void {
+  process.env.POSTGRES_HOST = configuracion.host;
+  process.env.POSTGRES_PORT = configuracion.port.toString();
+  process.env.POSTGRES_USER = configuracion.user;
+  process.env.POSTGRES_PASSWORD = configuracion.password;
+  process.env.POSTGRES_DATABASE = configuracion.database;
+}
+
+async function cargarConfiguracionInicial(): Promise<void> {
+  try {
+    const contenido = await fs.readFile(rutaEnv, 'utf-8');
+    const valores = dotenv.parse(contenido);
+    configuracionEnMemoria = normalizarConfiguracion({
+      host: valores.POSTGRES_HOST,
+      port: valores.POSTGRES_PORT,
+      user: valores.POSTGRES_USER,
+      password: valores.POSTGRES_PASSWORD ?? '',
+      database: valores.POSTGRES_DATABASE
+    });
+    existeArchivoEnv = true;
+    actualizarVariablesDeProceso(configuracionEnMemoria);
+  } catch (error) {
+    const codigo = error instanceof Error && 'code' in error ? (error as { code?: string }).code : undefined;
+    if (codigo !== 'ENOENT') {
+      console.warn('No se pudo leer .env, se usará la configuración por defecto en memoria.', error);
+    }
+    configuracionEnMemoria = { ...CONFIGURACION_POR_DEFECTO };
+    existeArchivoEnv = false;
+    actualizarVariablesDeProceso(configuracionEnMemoria);
+  }
+}
 
 /**
  * Crea la ventana principal de la aplicación con la configuración de seguridad recomendada.
@@ -56,16 +127,39 @@ function registrarManejadoresDeIPC(): void {
       throw new Error('La fecha fin no puede ser anterior a la fecha inicio.');
     }
 
-    const registrosCrudos = await consultarLogsPorRangoDeFechas(poolDeBaseDeDatos, {
-      fechaInicioIso,
-      fechaFinIso
-    });
+    const pool = construirPoolDeBaseDeDatos(configuracionEnMemoria);
+    try {
+      const registrosCrudos = await consultarLogsPorRangoDeFechas(pool, {
+        fechaInicioIso,
+        fechaFinIso
+      });
 
-    return { registrosCrudos };
+      return { registrosCrudos };
+    } finally {
+      await pool.end();
+    }
+  });
+
+  ipcMain.handle('get-env-config', async () => {
+    return {
+      configuracion: prepararConfiguracionParaRenderer(configuracionEnMemoria),
+      existeArchivoEnv
+    };
+  });
+
+  ipcMain.handle('save-env-config', async (_event, configuracionRecibida: ConfiguracionBaseDeDatosEntrada) => {
+    const configuracionNormalizada = normalizarConfiguracion(configuracionRecibida);
+    configuracionEnMemoria = configuracionNormalizada;
+    actualizarVariablesDeProceso(configuracionEnMemoria);
+    return {
+      configuracion: prepararConfiguracionParaRenderer(configuracionEnMemoria),
+      existeArchivoEnv
+    };
   });
 }
 
-app.whenReady().then((): void => {
+app.whenReady().then(async (): Promise<void> => {
+  await cargarConfiguracionInicial();
   registrarManejadoresDeIPC();
   crearVentanaPrincipal();
 

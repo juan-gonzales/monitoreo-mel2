@@ -16,6 +16,19 @@ interface RegistroNormalizado {
   tiempo: number;
 }
 
+interface ConfiguracionBaseDeDatos {
+  host: string;
+  port: string;
+  user: string;
+  password: string;
+  database: string;
+}
+
+interface RespuestaConfiguracion {
+  existeArchivoEnv: boolean;
+  configuracion: ConfiguracionBaseDeDatos;
+}
+
 interface EstadoDashboard {
   registrosCrudos: RegistroNormalizado[];
   registrosFiltrados: RegistroNormalizado[];
@@ -29,6 +42,10 @@ interface ElectronAPI {
   }) => Promise<{
     registrosCrudos: RegistroCrudo[];
   }>;
+  obtenerConfiguracionDeEnv: () => Promise<RespuestaConfiguracion>;
+  guardarConfiguracionDeEnv: (
+    configuracion: ConfiguracionBaseDeDatos
+  ) => Promise<RespuestaConfiguracion>;
 }
 
 interface Window {
@@ -101,11 +118,65 @@ const COLOR_BORDE = ESTILO.getPropertyValue("--borde-suave").trim() || "#e5e7eb"
 const COLOR_AZUL = ESTILO.getPropertyValue("--color-azul").trim() || "#1f6feb";
 const COLOR_ACENTO = ESTILO.getPropertyValue("--color-acento").trim() || "#0d9488";
 
+const CONFIG_BD_POR_DEFECTO: ConfiguracionBaseDeDatos = {
+  host: "localhost",
+  port: "5432",
+  user: "postgres",
+  password: "",
+  database: "monitoreo",
+};
+
+const itemsMenuSeccion = document.querySelectorAll(
+  "[data-section]"
+) as NodeListOf<HTMLLIElement>;
+const seccionDashboard = document.getElementById(
+  "seccion-dashboard"
+) as HTMLElement;
+const seccionConfiguracion = document.getElementById(
+  "seccion-configuracion"
+) as HTMLElement;
+
+const formularioConfiguracion = document.getElementById(
+  "formulario-configuracion"
+) as HTMLFormElement;
+const inputConfigHost = document.getElementById(
+  "config-host"
+) as HTMLInputElement;
+const inputConfigPort = document.getElementById(
+  "config-port"
+) as HTMLInputElement;
+const inputConfigUser = document.getElementById(
+  "config-user"
+) as HTMLInputElement;
+const inputConfigPassword = document.getElementById(
+  "config-password"
+) as HTMLInputElement;
+const inputConfigDatabase = document.getElementById(
+  "config-database"
+) as HTMLInputElement;
+const botonGuardarConfiguracion = document.getElementById(
+  "boton-guardar-configuracion"
+) as HTMLButtonElement;
+const botonRecargarConfiguracion = document.getElementById(
+  "boton-recargar-configuracion"
+) as HTMLButtonElement;
+const estadoConfiguracion = document.getElementById(
+  "estado-configuracion"
+) as HTMLDivElement;
+const alertaConfiguracion = document.getElementById(
+  "alerta-configuracion"
+) as HTMLDivElement;
+
 const estadoDashboard: EstadoDashboard = {
   registrosCrudos: [],
   registrosFiltrados: [],
   accionesDisponibles: [],
 };
+
+type SeccionActiva = "dashboard" | "configuracion";
+let seccionActual: SeccionActiva = "dashboard";
+
+type TipoEstadoUI = "info" | "alerta" | "error" | "exito";
 
 /**
  * Ajusta el mensaje de estado visible para el usuario.
@@ -114,7 +185,7 @@ const estadoDashboard: EstadoDashboard = {
  */
 function mostrarEstadoDeConsulta(
   mensaje: string,
-  tipo: "info" | "alerta" | "error" | "exito" = "info"
+  tipo: TipoEstadoUI = "info"
 ): void {
   contenedorEstado.textContent = mensaje;
   contenedorEstado.className = `estado ${tipo}`;
@@ -138,6 +209,165 @@ function bloquearUIDuranteCarga(
   botonCargarCsv.textContent = estaCargando
     ? "Cargando CSV..."
     : "Consultar por CSV";
+}
+
+/**
+ * Muestra el estado de la sección de configuración y reutiliza el estilo global de alertas.
+ */
+function mostrarEstadoDeConfiguracion(
+  mensaje: string,
+  tipo: TipoEstadoUI = "info"
+): void {
+  estadoConfiguracion.textContent = mensaje;
+  estadoConfiguracion.className = `estado ${tipo}`;
+}
+
+function mostrarAlertaDeConfiguracion(mensaje: string): void {
+  alertaConfiguracion.textContent = mensaje;
+  alertaConfiguracion.hidden = false;
+}
+
+function limpiarAlertaDeConfiguracion(): void {
+  alertaConfiguracion.hidden = true;
+  alertaConfiguracion.textContent = "";
+}
+
+function bloquearFormularioDeConfiguracion(estaProcesando: boolean): void {
+  inputConfigHost.disabled = estaProcesando;
+  inputConfigPort.disabled = estaProcesando;
+  inputConfigUser.disabled = estaProcesando;
+  inputConfigPassword.disabled = estaProcesando;
+  inputConfigDatabase.disabled = estaProcesando;
+  botonGuardarConfiguracion.disabled = estaProcesando;
+  botonRecargarConfiguracion.disabled = estaProcesando;
+  botonGuardarConfiguracion.textContent = estaProcesando
+    ? "Guardando..."
+    : "Guardar configuración";
+}
+
+function rellenarFormularioConfiguracion(
+  valores: ConfiguracionBaseDeDatos
+): void {
+  inputConfigHost.value = valores.host ?? "";
+  inputConfigPort.value = valores.port ?? "";
+  inputConfigUser.value = valores.user ?? "";
+  inputConfigPassword.value = valores.password ?? "";
+  inputConfigDatabase.value = valores.database ?? "";
+}
+
+function obtenerConfiguracionDesdeFormulario(): ConfiguracionBaseDeDatos {
+  return {
+    host: inputConfigHost.value.trim(),
+    port: inputConfigPort.value.trim(),
+    user: inputConfigUser.value.trim(),
+    password: inputConfigPassword.value.trim(),
+    database: inputConfigDatabase.value.trim(),
+  };
+}
+
+function validarConfiguracion(
+  valores: ConfiguracionBaseDeDatos
+): string[] {
+  const errores: string[] = [];
+  if (!valores.host) {
+    errores.push("Indica un host de base de datos.");
+  }
+
+  const numeroDePuerto = Number(valores.port);
+  if (Number.isNaN(numeroDePuerto) || numeroDePuerto <= 0) {
+    errores.push("El puerto debe ser un número mayor a cero.");
+  }
+
+  if (!valores.user) {
+    errores.push("Indica el usuario de conexión.");
+  }
+
+  if (!valores.database) {
+    errores.push("Indica la base de datos a usar.");
+  }
+
+  return errores;
+}
+
+async function cargarConfiguracionDeEnv(): Promise<void> {
+  bloquearFormularioDeConfiguracion(true);
+  limpiarAlertaDeConfiguracion();
+  mostrarEstadoDeConfiguracion("Cargando configuración...", "info");
+
+  try {
+    const respuesta = await window.electronAPI.obtenerConfiguracionDeEnv();
+    const valores = respuesta.configuracion ?? CONFIG_BD_POR_DEFECTO;
+    rellenarFormularioConfiguracion(valores);
+
+    if (!respuesta.existeArchivoEnv) {
+      mostrarAlertaDeConfiguracion(
+        "No se encontró el archivo .env. Se usará configuración en memoria; los cambios no se guardan en disco."
+      );
+      mostrarEstadoDeConfiguracion(
+        "Sin archivo base: puedes ingresar los valores manualmente.",
+        "alerta"
+      );
+    } else {
+      mostrarEstadoDeConfiguracion(
+        "Configuración cargada desde .env.",
+        "exito"
+      );
+    }
+  } catch (error) {
+    const mensaje =
+      error instanceof Error
+        ? error.message
+        : "No se pudo leer la configuración.";
+    mostrarEstadoDeConfiguracion(`Error al leer .env: ${mensaje}`, "error");
+  } finally {
+    bloquearFormularioDeConfiguracion(false);
+  }
+}
+
+async function manejarGuardadoDeConfiguracion(
+  evento: SubmitEvent
+): Promise<void> {
+  evento.preventDefault();
+  const valores = obtenerConfiguracionDesdeFormulario();
+  const errores = validarConfiguracion(valores);
+  if (errores.length > 0) {
+    mostrarEstadoDeConfiguracion(errores.join(" "), "alerta");
+    return;
+  }
+
+  bloquearFormularioDeConfiguracion(true);
+  mostrarEstadoDeConfiguracion("Guardando configuración...", "info");
+
+  try {
+    const respuesta = await window.electronAPI.guardarConfiguracionDeEnv(
+      valores
+    );
+    rellenarFormularioConfiguracion(respuesta.configuracion);
+    limpiarAlertaDeConfiguracion();
+    mostrarEstadoDeConfiguracion(
+      "Configuración actualizada en memoria para esta sesión.",
+      "exito"
+    );
+  } catch (error) {
+    const mensaje =
+      error instanceof Error
+        ? error.message
+        : "No se pudo guardar la configuración.";
+    mostrarEstadoDeConfiguracion(`Error al guardar: ${mensaje}`, "error");
+  } finally {
+    bloquearFormularioDeConfiguracion(false);
+  }
+}
+
+function cambiarSeccion(seccion: SeccionActiva): void {
+  seccionActual = seccion;
+  itemsMenuSeccion.forEach((item) => {
+    const destino = item.dataset.section;
+    item.classList.toggle("activo", destino === seccion);
+  });
+
+  seccionDashboard.hidden = seccion !== "dashboard";
+  seccionConfiguracion.hidden = seccion !== "configuracion";
 }
 
 /**
@@ -853,3 +1083,29 @@ botonToggleMenu.addEventListener("click", () => {
 botonCopiarGraficos.addEventListener("click", () => {
   void copiarGraficosComoImagen();
 });
+
+itemsMenuSeccion.forEach((item) => {
+  item.addEventListener("click", () => {
+    const destino = item.dataset.section as SeccionActiva | undefined;
+    if (!destino) {
+      return;
+    }
+
+    cambiarSeccion(destino);
+
+    if (destino === "configuracion") {
+      void cargarConfiguracionDeEnv();
+    }
+  });
+});
+
+formularioConfiguracion.addEventListener("submit", (evento) => {
+  void manejarGuardadoDeConfiguracion(evento);
+});
+
+botonRecargarConfiguracion.addEventListener("click", () => {
+  void cargarConfiguracionDeEnv();
+});
+
+cambiarSeccion(seccionActual);
+void cargarConfiguracionDeEnv();
