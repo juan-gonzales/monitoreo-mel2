@@ -13,7 +13,13 @@
     <div class="app-layout">
       <aside class="menu-lateral">
         <div class="menu-lateral__encabezado">
-          <h1 class="logo">Monitoreo MEL</h1>
+          <div class="logo" aria-label="Monitoreo MEL">
+            <span class="logo__marca">M</span>
+            <div class="logo__texto">
+              <span class="logo__titulo">Monitoreo</span>
+              <span class="logo__subtitulo">MEL</span>
+            </div>
+          </div>
           <button
             id="boton-toggle-menu"
             class="control-menu"
@@ -21,16 +27,90 @@
             aria-expanded="true"
             aria-label="Ocultar menú lateral"
           >
-            Ocultar menú
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M4 7.5C4 6.67157 4.67157 6 5.5 6H18.5C19.3284 6 20 6.67157 20 7.5C20 8.32843 19.3284 9 18.5 9H5.5C4.67157 9 4 8.32843 4 7.5Z"
+                fill="currentColor"
+              />
+              <path
+                d="M4 12C4 11.1716 4.67157 10.5 5.5 10.5H18.5C19.3284 10.5 20 11.1716 20 12C20 12.8284 19.3284 13.5 18.5 13.5H5.5C4.67157 13.5 4 12.8284 4 12Z"
+                fill="currentColor"
+              />
+              <path
+                d="M4 16.5C4 15.6716 4.67157 15 5.5 15H18.5C19.3284 15 20 15.6716 20 16.5C20 17.3284 19.3284 18 18.5 18H5.5C4.67157 18 4 17.3284 4 16.5Z"
+                fill="currentColor"
+              />
+            </svg>
+            <span class="control-menu__texto">Ocultar</span>
           </button>
         </div>
-        <nav>
-          <ul>
-            <li class="activo" data-section="dashboard">Dashboard</li>
-            <li>Consultas</li>
-            <li>Detalle de logs</li>
-            <li>Comparaciones</li>
-            <li data-section="configuracion">Configuración</li>
+        <nav class="menu-principal">
+          <ul class="menu-principal__lista">
+            <li class="menu-principal__item activo" data-section="dashboard" title="Dashboard">
+              <span aria-hidden="true" class="menu-principal__icono">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M4.75 6C4.75 4.75736 5.75736 3.75 7 3.75H9C10.2426 3.75 11.25 4.75736 11.25 6V18C11.25 19.2426 10.2426 20.25 9 20.25H7C5.75736 20.25 4.75 19.2426 4.75 18V6Z"
+                  />
+                  <path
+                    d="M12.75 11C12.75 9.75736 13.7574 8.75 15 8.75H17C18.2426 8.75 19.25 9.75736 19.25 11V18C19.25 19.2426 18.2426 20.25 17 20.25H15C13.7574 20.25 12.75 19.2426 12.75 18V11Z"
+                  />
+                </svg>
+              </span>
+              <span class="menu-principal__texto">Dashboard</span>
+            </li>
+            <li class="menu-principal__item" title="Consultas">
+              <span aria-hidden="true" class="menu-principal__icono">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M6.25 5.75C6.25 4.64543 7.14543 3.75 8.25 3.75H15.75C16.8546 3.75 17.75 4.64543 17.75 5.75V18.25C17.75 19.3546 16.8546 20.25 15.75 20.25H8.25C7.14543 20.25 6.25 19.3546 6.25 18.25V5.75Z"
+                  />
+                  <path d="M9 8.25H15" />
+                  <path d="M9 12H15" />
+                  <path d="M9 15.75H13" />
+                </svg>
+              </span>
+              <span class="menu-principal__texto">Consultas</span>
+            </li>
+            <li class="menu-principal__item" title="Detalle de logs">
+              <span aria-hidden="true" class="menu-principal__icono">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M5.75 6C5.75 4.75736 6.75736 3.75 8 3.75H16C17.2426 3.75 18.25 4.75736 18.25 6V18C18.25 19.2426 17.2426 20.25 16 20.25H8C6.75736 20.25 5.75 19.2426 5.75 18V6Z"
+                  />
+                  <path d="M8.75 8.75H15.25" />
+                  <path d="M8.75 12H15.25" />
+                  <path d="M8.75 15.25H12.5" />
+                </svg>
+              </span>
+              <span class="menu-principal__texto">Detalle de logs</span>
+            </li>
+            <li class="menu-principal__item" title="Comparaciones">
+              <span aria-hidden="true" class="menu-principal__icono">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M7 5.75C7 4.7835 7.7835 4 8.75 4H14.25C15.2165 4 16 4.7835 16 5.75V11.25C16 12.2165 15.2165 13 14.25 13H8.75C7.7835 13 7 12.2165 7 11.25V5.75Z"
+                  />
+                  <path
+                    d="M8 15.25C8 14.5596 8.55964 14 9.25 14H15.75C16.4404 14 17 14.5596 17 15.25V18.75C17 19.4404 16.4404 20 15.75 20H9.25C8.55964 20 8 19.4404 8 18.75V15.25Z"
+                  />
+                </svg>
+              </span>
+              <span class="menu-principal__texto">Comparaciones</span>
+            </li>
+            <li class="menu-principal__item" data-section="configuracion" title="Configuración">
+              <span aria-hidden="true" class="menu-principal__icono">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M12 9.75C10.7574 9.75 9.75 10.7574 9.75 12C9.75 13.2426 10.7574 14.25 12 14.25C13.2426 14.25 14.25 13.2426 14.25 12C14.25 10.7574 13.2426 9.75 12 9.75Z"
+                  />
+                  <path
+                    d="M4.75 12C4.75 11.6134 4.81189 11.2411 4.92422 10.8938L3.36543 9.52464C3.13343 9.31541 3 9.02167 3 8.71429C3 8.19189 3.41889 7.773 3.94129 7.773H5.90457C6.20605 7.19724 6.596 6.67609 7.05464 6.2315L6.63657 4.21179C6.567 3.88816 6.64879 3.5505 6.85545 3.30129C7.19202 2.892 7.76486 2.82893 8.19257 3.14207L9.79457 4.31079C10.1898 4.15724 10.6065 4.05329 11.0371 4.00629L11.5 2.04493C11.5847 1.70686 11.8875 1.46429 12.2366 1.46429H11.7634C12.1125 1.46429 12.4153 1.70686 12.5 2.04493L12.9629 4.00629C13.3935 4.05329 13.8102 4.15724 14.2054 4.31079L15.8074 3.14207C16.2351 2.82893 16.808 2.892 17.1446 3.30129C17.3512 3.5505 17.433 3.88816 17.3634 4.21179L16.9454 6.2315C17.404 6.67609 17.7939 7.19724 18.0954 7.773H20.0587C20.5811 7.773 21 8.19189 21 8.71429C21 9.02167 20.8666 9.31541 20.6346 9.52464L19.0758 10.8938C19.1881 11.2411 19.25 11.6134 19.25 12C19.25 12.3866 19.1881 12.7589 19.0758 13.1062L20.6346 14.4754C20.8666 14.6846 21 14.9783 21 15.2857C21 15.8081 20.5811 16.227 20.0587 16.227H18.0954C17.7939 16.8028 17.404 17.3239 16.9454 17.7685L17.3634 19.7882C17.433 20.1118 17.3512 20.4495 17.1446 20.6987C16.808 21.108 16.2351 21.1711 15.8074 20.8579L14.2054 19.6892C13.8102 19.8428 13.3935 19.9467 12.9629 19.9937L12.5 21.9551C12.4153 22.2931 12.1125 22.5357 11.7634 22.5357H12.2366C11.8875 22.5357 11.5847 22.2931 11.5 21.9551L11.0371 19.9937C10.6065 19.9467 10.1898 19.8428 9.79457 19.6892L8.19257 20.8579C7.76486 21.1711 7.19202 21.108 6.85545 20.6987C6.64879 20.4495 6.567 20.1118 6.63657 19.7882L7.05464 17.7685C6.596 17.3239 6.20605 16.8028 5.90457 16.227H3.94129C3.41889 16.227 3 15.8081 3 15.2857C3 14.9783 3.13343 14.6846 3.36543 14.4754L4.92422 13.1062C4.81189 12.7589 4.75 12.3866 4.75 12Z"
+                  />
+                </svg>
+              </span>
+              <span class="menu-principal__texto">Configuración</span>
+            </li>
           </ul>
         </nav>
       </aside>

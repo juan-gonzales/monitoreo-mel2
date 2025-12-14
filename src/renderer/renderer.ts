@@ -109,6 +109,9 @@ const appLayout = document.querySelector(".app-layout") as HTMLDivElement;
 const botonToggleMenu = document.getElementById(
   "boton-toggle-menu"
 ) as HTMLButtonElement;
+const textoToggleMenu = botonToggleMenu.querySelector(
+  ".control-menu__texto"
+) as HTMLSpanElement;
 const CLASE_MENU_COLAPSADO = "menu-colapsado";
 
 const ESTILO = getComputedStyle(document.documentElement);
@@ -501,9 +504,9 @@ function leerArchivoComoTexto(archivo: File): Promise<string> {
  */
 function alternarMenuLateral(): void {
   const menuEstaColapsado = appLayout.classList.toggle(CLASE_MENU_COLAPSADO);
-  botonToggleMenu.textContent = menuEstaColapsado
-    ? "Mostrar menú"
-    : "Ocultar menú";
+  if (textoToggleMenu) {
+    textoToggleMenu.textContent = menuEstaColapsado ? "Mostrar" : "Ocultar";
+  }
   botonToggleMenu.setAttribute(
     "aria-label",
     menuEstaColapsado ? "Mostrar menú lateral" : "Ocultar menú lateral"
