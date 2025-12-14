@@ -230,7 +230,7 @@ body {
 
 .graficos {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 24px;
   margin-top: 16px;
 }
@@ -300,6 +300,7 @@ body {
   border-radius: 12px;
   padding: 16px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  min-width: 0;
 }
 
 .grafico header h3 {
@@ -309,6 +310,12 @@ body {
 .grafico header p {
   margin: 0;
   color: #4b5563;
+}
+
+.grafico canvas {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
 }
 
 @media (max-width: 1100px) {

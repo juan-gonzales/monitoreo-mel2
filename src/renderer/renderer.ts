@@ -282,6 +282,22 @@ function alternarMenuLateral(): void {
     "aria-expanded",
     (!menuEstaColapsado).toString()
   );
+  redimensionarGraficos();
+}
+
+/**
+ * Fuerza el recalculo de tamaños de los gráficos tras cambios de layout (abrir/cerrar menú).
+ * Útil porque el evento de redimensionamiento no siempre dispara al ajustar la grilla interna.
+ */
+function redimensionarGraficos(): void {
+  if (!graficoDuracionPromedio && !graficoCantidadPorMinuto) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    graficoDuracionPromedio?.resize();
+    graficoCantidadPorMinuto?.resize();
+  });
 }
 
 /**
