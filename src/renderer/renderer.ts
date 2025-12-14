@@ -66,6 +66,15 @@ const textoBotonCopiar = botonCopiarGraficos.querySelector(
 const selectorAccion = document.getElementById(
   "filtro-accion"
 ) as HTMLSelectElement;
+const tituloGraficoDuracion = document.getElementById(
+  "titulo-grafico-duracion"
+) as HTMLHeadingElement;
+const tituloGraficoConteo = document.getElementById(
+  "titulo-grafico-conteo"
+) as HTMLHeadingElement;
+
+const TEXTO_BASE_TITULO_DURACION = "Duración promedio por minuto";
+const TEXTO_BASE_TITULO_CONTEO = "Cantidad de transacciones por minuto";
 
 const lienzoGraficoDuracion = document.getElementById(
   "grafico-duracion"
@@ -614,6 +623,7 @@ function renderizarGraficoDeDuracion(
       },
       plugins: {
         legend: {
+          display: false,
           labels: { color: "#111827" },
         },
       },
@@ -674,6 +684,7 @@ function renderizarGraficoDeConteo(
       },
       plugins: {
         legend: {
+          display: false,
           labels: { color: "#111827" },
         },
       },
@@ -688,6 +699,11 @@ function renderizarGraficoDeConteo(
  */
 function actualizarGraficosConFiltroSeleccionado(): void {
   const accionSeleccionada = selectorAccion.value;
+  const textoAccionSeleccionada =
+    selectorAccion.options[selectorAccion.selectedIndex]?.textContent ??
+    accionSeleccionada;
+  tituloGraficoDuracion.textContent = `${TEXTO_BASE_TITULO_DURACION} - ${textoAccionSeleccionada}`;
+  tituloGraficoConteo.textContent = `${TEXTO_BASE_TITULO_CONTEO} - ${textoAccionSeleccionada}`;
 
   estadoDashboard.registrosFiltrados = estadoDashboard.registrosCrudos.filter(
     (registro) => {
