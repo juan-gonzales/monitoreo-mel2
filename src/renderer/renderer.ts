@@ -821,6 +821,50 @@ function obtenerMaximoEnSeries(
   return Math.max(...valores);
 }
 
+const pluginEtiquetasBarras = {
+  id: "etiquetasBarras",
+  afterDatasetsDraw(chart: Grafico): void {
+    const { ctx } = chart;
+    ctx.save();
+    const datasets = chart.data
+      .datasets as Array<{ data?: Array<number | null | undefined> }>;
+
+    datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      const elementos = meta.data as unknown as Array<{
+        getProps: (
+          props: Array<"x" | "y" | "base">,
+          final: boolean
+        ) => { x: number; y: number; base: number };
+      }>;
+
+      elementos.forEach((elemento, indice) => {
+        const valor = dataset.data?.[indice];
+        if (
+          valor === null ||
+          valor === undefined ||
+          typeof valor !== "number"
+        ) {
+          return;
+        }
+
+        const { x, y, base } = elemento.getProps(["x", "y", "base"], true);
+        const altura = base - y;
+        if (altura < 14) {
+          return;
+        }
+
+        ctx.fillStyle = "#111827";
+        ctx.font = "bold 10px 'Inter', system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(valor.toString(), x, y + altura / 2);
+      });
+    });
+    ctx.restore();
+  },
+};
+
 /**
  * Calcula las métricas necesarias para los gráficos agrupando por día y hora (minuto truncado).
  * Cada día se convierte en una serie independiente para poder comparar visualmente.
@@ -919,7 +963,7 @@ function renderizarGraficoDeDuracion(
       data: serie.promediosPorHora,
       borderColor: color,
       backgroundColor: colorConOpacidad(color, 0.15),
-      tension: 0.25,
+      tension: 0,
       spanGaps: false,
       pointRadius: 2,
     };
@@ -978,22 +1022,38 @@ function renderizarGraficoDeConteo(
     graficoCantidadPorMinuto.destroy();
   }
 
+  const esUnSoloDia = seriesPorDia.length === 1;
   const datasets = seriesPorDia.map((serie, indice) => {
     const color = obtenerColorDeSerie(indice + 2); // Desplaza para variar frente al gráfico de duración
-    return {
+    const baseDataset = {
       label: serie.dia,
       data: serie.conteosPorHora,
-      backgroundColor: colorConOpacidad(color, 0.6),
       borderColor: color,
-      borderWidth: 1,
-      borderRadius: 3,
+      backgroundColor: colorConOpacidad(color, esUnSoloDia ? 0.65 : 0.2),
+    };
+
+    if (esUnSoloDia) {
+      return {
+        ...baseDataset,
+        borderRadius: 6,
+        borderWidth: 1,
+        maxBarThickness: 28,
+      };
+    }
+
+    return {
+      ...baseDataset,
+      tension: 0,
+      spanGaps: false,
+      pointRadius: 2,
+      fill: false,
     };
   });
 
   const limiteSuperior = Math.max(1, Math.ceil(maximoConteo) + 1);
 
   graficoCantidadPorMinuto = new Chart(lienzoGraficoCantidad, {
-    type: "bar",
+    type: esUnSoloDia ? "bar" : "line",
     data: {
       labels: etiquetasHoras,
       datasets,
@@ -1025,6 +1085,7 @@ function renderizarGraficoDeConteo(
         },
       },
     },
+    plugins: [],
   });
 }
 
