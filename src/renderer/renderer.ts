@@ -115,11 +115,15 @@ const textoToggleMenu = botonToggleMenu.querySelector(
 const CLASE_MENU_COLAPSADO = "menu-colapsado";
 
 const ESTILO = getComputedStyle(document.documentElement);
-const COLOR_FONDO = ESTILO.getPropertyValue("--color-fondo").trim() || "#f5f5f5";
-const COLOR_PANEL = ESTILO.getPropertyValue("--color-panel").trim() || "#ffffff";
-const COLOR_BORDE = ESTILO.getPropertyValue("--borde-suave").trim() || "#e5e7eb";
+const COLOR_FONDO =
+  ESTILO.getPropertyValue("--color-fondo").trim() || "#f5f5f5";
+const COLOR_PANEL =
+  ESTILO.getPropertyValue("--color-panel").trim() || "#ffffff";
+const COLOR_BORDE =
+  ESTILO.getPropertyValue("--borde-suave").trim() || "#e5e7eb";
 const COLOR_AZUL = ESTILO.getPropertyValue("--color-azul").trim() || "#1f6feb";
-const COLOR_ACENTO = ESTILO.getPropertyValue("--color-acento").trim() || "#0d9488";
+const COLOR_ACENTO =
+  ESTILO.getPropertyValue("--color-acento").trim() || "#0d9488";
 
 const CONFIG_BD_POR_DEFECTO: ConfiguracionBaseDeDatos = {
   host: "localhost",
@@ -268,9 +272,7 @@ function obtenerConfiguracionDesdeFormulario(): ConfiguracionBaseDeDatos {
   };
 }
 
-function validarConfiguracion(
-  valores: ConfiguracionBaseDeDatos
-): string[] {
+function validarConfiguracion(valores: ConfiguracionBaseDeDatos): string[] {
   const errores: string[] = [];
   if (!valores.host) {
     errores.push("Indica un host de base de datos.");
@@ -398,10 +400,6 @@ function cargarRegistrosEnDashboard(
   mensajeExito: string,
   mensajeSinDatos: string
 ): void {
-  console.log(
-    "🚀 ~ cargarRegistrosEnDashboard ~ registrosCrudos:",
-    registrosCrudos
-  );
   const registrosNormalizados = registrosCrudos
     .map(normalizarRegistroCrudo)
     .filter(
@@ -409,10 +407,6 @@ function cargarRegistrosEnDashboard(
         !Number.isNaN(registro.fechaEvento.getTime()) &&
         !Number.isNaN(registro.tiempo)
     );
-  console.log(
-    "🚀 ~ cargarRegistrosEnDashboard ~ registrosNormalizados:",
-    registrosNormalizados
-  );
 
   if (registrosNormalizados.length === 0) {
     mostrarEstadoDeConsulta(mensajeSinDatos, "alerta");
@@ -692,7 +686,6 @@ async function copiarGraficosComoImagen(): Promise<void> {
   }
 }
 
-
 /**
  * Convierte el contenido de un CSV en registros crudos con las columnas esperadas.
  * Asume cabecera con los nombres de columna: fecha, accion, tiempo.
@@ -712,16 +705,24 @@ function parsearCsvEnRegistros(contenido: string): RegistroCrudo[] {
     return celda.replace(/['"]/g, "").trim().toLowerCase();
   });
 
-  const indiceFecha = cabeceras.findIndex((celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "fecha");
-  const indiceAccion = cabeceras.findIndex((celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "accion");
-  const indiceTiempo = cabeceras.findIndex((celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "tiempo");
+  const indiceFecha = cabeceras.findIndex(
+    (celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "fecha"
+  );
+  const indiceAccion = cabeceras.findIndex(
+    (celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "accion"
+  );
+  const indiceTiempo = cabeceras.findIndex(
+    (celda) => celda.replace(/['"]/g, "").trim().toLowerCase() === "tiempo"
+  );
 
   const posicionFecha = indiceFecha >= 0 ? indiceFecha : 0;
   const posicionAccion = indiceAccion >= 0 ? indiceAccion : 1;
   const posicionTiempo = indiceTiempo >= 0 ? indiceTiempo : 2;
 
   return lineas.slice(1).reduce<RegistroCrudo[]>((acumulado, linea) => {
-    const columnas = linea.split(delimitador).map((celda) => celda.replace(/['"]/g, "").trim().toLowerCase());
+    const columnas = linea
+      .split(delimitador)
+      .map((celda) => celda.replace(/['"]/g, "").trim().toLowerCase());
 
     if (
       columnas.length <= Math.max(posicionFecha, posicionAccion, posicionTiempo)
@@ -744,24 +745,104 @@ function parsearCsvEnRegistros(contenido: string): RegistroCrudo[] {
 }
 
 /**
- * Agrupa registros por minuto para facilitar el cálculo de promedios y conteos.
- * Retorna un mapa donde la llave es la marca de tiempo truncada al minuto en ISO.
- * Impacta en el rendimiento al permitir cálculos por lote en lugar de iterar múltiples veces.
+ * Estructuras auxiliares para construir series independientes por día.
+ * Permite trazar múltiples líneas en el mismo eje de tiempo (hh:mm) y comparar jornadas.
  */
-function agruparRegistrosPorMinuto(
-  registros: RegistroNormalizado[]
-): Map<string, { tiemposSegundos: number[]; conteo: number }> {
-  const agrupados = new Map<
+interface SeriePorDia {
+  dia: string;
+  promediosPorHora: (number | null)[];
+  conteosPorHora: (number | null)[];
+}
+
+interface DatosGraficosPorDia {
+  etiquetasHoras: string[];
+  seriesPorDia: SeriePorDia[];
+  maximoPromedio: number;
+  maximoConteo: number;
+}
+
+const PALETA_COLORES = [
+  "#1f6feb",
+  "#0d9488",
+  "#f97316",
+  "#8b5cf6",
+  "#e11d48",
+  "#10b981",
+  "#0ea5e9",
+  "#f59e0b",
+];
+
+function colorConOpacidad(hex: string, opacidad: number): string {
+  const limpio = hex.replace("#", "");
+  const hexNormalizado =
+    limpio.length === 3
+      ? limpio
+          .split("")
+          .map((caracter) => caracter + caracter)
+          .join("")
+      : limpio;
+  const r = parseInt(hexNormalizado.substring(0, 2), 16);
+  const g = parseInt(hexNormalizado.substring(2, 4), 16);
+  const b = parseInt(hexNormalizado.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacidad})`;
+}
+
+function obtenerColorDeSerie(indice: number): string {
+  return PALETA_COLORES[indice % PALETA_COLORES.length];
+}
+
+function obtenerIdDia(fecha: Date): string {
+  const year = fecha.getFullYear();
+  const mes = `${fecha.getMonth() + 1}`.padStart(2, "0");
+  const dia = `${fecha.getDate()}`.padStart(2, "0");
+  return `${year}-${mes}-${dia}`;
+}
+
+function formatearHoraParaEtiqueta(fecha: Date): string {
+  return fecha.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function obtenerMaximoEnSeries(
+  series: SeriePorDia[],
+  selector: (serie: SeriePorDia) => (number | null)[]
+): number {
+  const valores = series.flatMap((serie) =>
+    selector(serie).filter(
+      (valor): valor is number => valor !== null && !Number.isNaN(valor)
+    )
+  );
+  if (valores.length === 0) {
+    return 0;
+  }
+  return Math.max(...valores);
+}
+
+/**
+ * Calcula las métricas necesarias para los gráficos agrupando por día y hora (minuto truncado).
+ * Cada día se convierte en una serie independiente para poder comparar visualmente.
+ */
+function calcularMetricasParaGraficos(
+  registrosFiltrados: RegistroNormalizado[]
+): DatosGraficosPorDia {
+  const horasEncontradas = new Set<string>();
+  const mapaPorDia = new Map<
     string,
-    { tiemposSegundos: number[]; conteo: number }
+    Map<string, { tiemposSegundos: number[]; conteo: number }>
   >();
 
-  registros.forEach((registro) => {
+  registrosFiltrados.forEach((registro) => {
     const marcaPorMinuto = new Date(registro.fechaEvento);
     marcaPorMinuto.setSeconds(0, 0);
-    const claveMinuto = marcaPorMinuto.toISOString();
+    const claveDia = obtenerIdDia(marcaPorMinuto);
+    const claveHora = formatearHoraParaEtiqueta(marcaPorMinuto);
+    horasEncontradas.add(claveHora);
 
-    const agrupacionExistente = agrupados.get(claveMinuto) || {
+    const mapaHoras = mapaPorDia.get(claveDia) ?? new Map();
+    const agrupacionExistente = mapaHoras.get(claveHora) ?? {
       tiemposSegundos: [],
       conteo: 0,
     };
@@ -771,50 +852,50 @@ function agruparRegistrosPorMinuto(
     );
     agrupacionExistente.conteo += 1;
 
-    agrupados.set(claveMinuto, agrupacionExistente);
+    mapaHoras.set(claveHora, agrupacionExistente);
+    mapaPorDia.set(claveDia, mapaHoras);
   });
 
-  return agrupados;
-}
+  const etiquetasHoras = Array.from(horasEncontradas).sort();
 
-/**
- * Calcula las métricas necesarias para los gráficos a partir de los registros filtrados.
- * Separa claramente la obtención de datos (ya realizada) de la transformación para visualización.
- * Impacta en el rendimiento del renderer al trabajar con estructuras livianas.
- */
-function calcularMetricasParaGraficos(
-  registrosFiltrados: RegistroNormalizado[]
-): {
-  etiquetas: Date[];
-  promediosPorMinuto: number[];
-  conteosPorMinuto: number[];
-} {
-  const agrupados = agruparRegistrosPorMinuto(registrosFiltrados);
-  const etiquetas: Date[] = [];
-  const promediosPorMinuto: number[] = [];
-  const conteosPorMinuto: number[] = [];
+  const seriesPorDia: SeriePorDia[] = Array.from(mapaPorDia.entries())
+    .sort(([diaA], [diaB]) => diaA.localeCompare(diaB))
+    .map(([dia, mapaHoras]) => {
+      const promediosPorHora: (number | null)[] = [];
+      const conteosPorHora: (number | null)[] = [];
 
-  Array.from(agrupados.keys())
-    .sort()
-    .forEach((claveMinuto) => {
-      const agrupacion = agrupados.get(claveMinuto);
-      if (!agrupacion) {
-        return;
-      }
+      etiquetasHoras.forEach((hora) => {
+        const agrupacion = mapaHoras.get(hora);
+        if (!agrupacion) {
+          promediosPorHora.push(null);
+          conteosPorHora.push(null);
+          return;
+        }
 
-      const { tiemposSegundos, conteo } = agrupacion;
-      const sumaTiempos = tiemposSegundos.reduce(
-        (acumulado, valor) => acumulado + valor,
-        0
-      );
-      const promedio = conteo > 0 ? sumaTiempos / conteo : 0;
+        const sumaTiempos = agrupacion.tiemposSegundos.reduce(
+          (acumulado, valor) => acumulado + valor,
+          0
+        );
+        const promedio =
+          agrupacion.conteo > 0 ? sumaTiempos / agrupacion.conteo : 0;
 
-      etiquetas.push(new Date(claveMinuto));
-      promediosPorMinuto.push(promedio);
-      conteosPorMinuto.push(conteo);
+        promediosPorHora.push(promedio);
+        conteosPorHora.push(agrupacion.conteo);
+      });
+
+      return { dia, promediosPorHora, conteosPorHora };
     });
 
-  return { etiquetas, promediosPorMinuto, conteosPorMinuto };
+  const maximoPromedio = obtenerMaximoEnSeries(
+    seriesPorDia,
+    (serie) => serie.promediosPorHora
+  );
+  const maximoConteo = obtenerMaximoEnSeries(
+    seriesPorDia,
+    (serie) => serie.conteosPorHora
+  );
+
+  return { etiquetasHoras, seriesPorDia, maximoPromedio, maximoConteo };
 }
 
 /**
@@ -823,40 +904,43 @@ function calcularMetricasParaGraficos(
  * Impacta en la claridad visual de las métricas de rendimiento de la aplicación monitoreada.
  */
 function renderizarGraficoDeDuracion(
-  etiquetas: Date[],
-  promediosPorMinuto: number[]
+  etiquetasHoras: string[],
+  seriesPorDia: SeriePorDia[],
+  maximoPromedio: number
 ): void {
   if (graficoDuracionPromedio) {
     graficoDuracionPromedio.destroy();
   }
 
-  const maximoEnDatos =
-    promediosPorMinuto.length > 0 ? Math.max(...promediosPorMinuto) : 0;
-  const limiteSuperior = maximoEnDatos > 7 ? Math.ceil(maximoEnDatos) + 1 : 7;
+  const datasets = seriesPorDia.map((serie, indice) => {
+    const color = obtenerColorDeSerie(indice);
+    return {
+      label: serie.dia,
+      data: serie.promediosPorHora,
+      borderColor: color,
+      backgroundColor: colorConOpacidad(color, 0.15),
+      tension: 0.25,
+      spanGaps: false,
+      pointRadius: 2,
+    };
+  });
+
+  const limiteSuperior =
+    maximoPromedio > 7 ? Math.ceil(maximoPromedio) + 1 : 7;
 
   graficoDuracionPromedio = new Chart(lienzoGraficoDuracion, {
     type: "line",
     data: {
-      labels: etiquetas,
-      datasets: [
-        {
-          label: "Duración promedio (s)",
-          data: promediosPorMinuto,
-          borderColor: "#1f6feb",
-          backgroundColor: "rgba(31, 111, 235, 0.1)",
-          tension: 0,
-          pointRadius: 1,
-        },
-      ],
+      labels: etiquetasHoras,
+      datasets,
     },
     options: {
       responsive: true,
       interaction: { mode: "index", intersect: false },
       scales: {
         x: {
-          type: "time",
-          time: { unit: "minute", tooltipFormat: "yyyy-MM-dd HH:mm" },
-          ticks: { color: "#374151" },
+          type: "category",
+          ticks: { color: "#374151", maxRotation: 0, autoSkip: true },
           grid: { color: "#e5e7eb" },
         },
         y: {
@@ -864,16 +948,16 @@ function renderizarGraficoDeDuracion(
           beginAtZero: true,
           ticks: {
             color: "#374151",
-            stepSize: 1, // Incrementos de 1 entre los ticks
-            callback: (value) => value.toString(), // Asegura que los valores sean enteros
+            stepSize: 1,
+            callback: (value) => value.toString(),
           },
           grid: { color: "#e5e7eb" },
         },
       },
       plugins: {
         legend: {
-          display: false,
-          labels: { color: "#111827" },
+          display: true,
+          labels: { color: "#111827", boxWidth: 16 },
         },
       },
     },
@@ -886,38 +970,41 @@ function renderizarGraficoDeDuracion(
  * Impacta en la comprensión de volumen de actividad durante el rango seleccionado.
  */
 function renderizarGraficoDeConteo(
-  etiquetas: Date[],
-  conteosPorMinuto: number[]
+  etiquetasHoras: string[],
+  seriesPorDia: SeriePorDia[],
+  maximoConteo: number
 ): void {
   if (graficoCantidadPorMinuto) {
     graficoCantidadPorMinuto.destroy();
   }
 
-  const maximoEnDatos =
-    conteosPorMinuto.length > 0 ? Math.max(...conteosPorMinuto) : 0;
-  const limiteSuperior = maximoEnDatos + 1; // Encuentra el máximo y le suma 1
+  const datasets = seriesPorDia.map((serie, indice) => {
+    const color = obtenerColorDeSerie(indice + 2); // Desplaza para variar frente al gráfico de duración
+    return {
+      label: serie.dia,
+      data: serie.conteosPorHora,
+      backgroundColor: colorConOpacidad(color, 0.6),
+      borderColor: color,
+      borderWidth: 1,
+      borderRadius: 3,
+    };
+  });
+
+  const limiteSuperior = Math.max(1, Math.ceil(maximoConteo) + 1);
 
   graficoCantidadPorMinuto = new Chart(lienzoGraficoCantidad, {
     type: "bar",
     data: {
-      labels: etiquetas,
-      datasets: [
-        {
-          label: "Transacciones por minuto",
-          data: conteosPorMinuto,
-          backgroundColor: "#0d9488",
-          borderRadius: 2,
-        },
-      ],
+      labels: etiquetasHoras,
+      datasets,
     },
     options: {
       responsive: true,
       interaction: { mode: "index", intersect: false },
       scales: {
         x: {
-          type: "time",
-          time: { unit: "minute", tooltipFormat: "yyyy-MM-dd HH:mm" },
-          ticks: { color: "#374151" },
+          type: "category",
+          ticks: { color: "#374151", maxRotation: 0, autoSkip: true },
           grid: { color: "#e5e7eb" },
         },
         y: {
@@ -925,7 +1012,7 @@ function renderizarGraficoDeConteo(
           beginAtZero: true,
           ticks: {
             color: "#374151",
-            stepSize: 1, // Incrementos de 1 entre los ticks
+            stepSize: 1,
             callback: (value) => value.toString(),
           },
           grid: { color: "#e5e7eb" },
@@ -933,8 +1020,8 @@ function renderizarGraficoDeConteo(
       },
       plugins: {
         legend: {
-          display: false,
-          labels: { color: "#111827" },
+          display: true,
+          labels: { color: "#111827", boxWidth: 16 },
         },
       },
     },
@@ -973,12 +1060,12 @@ function actualizarGraficosConFiltroSeleccionado(): void {
     return;
   }
 
-  const { etiquetas, promediosPorMinuto, conteosPorMinuto } =
+  const { etiquetasHoras, seriesPorDia, maximoPromedio, maximoConteo } =
     calcularMetricasParaGraficos(estadoDashboard.registrosFiltrados);
 
   contenedorGraficos.hidden = false;
-  renderizarGraficoDeDuracion(etiquetas, promediosPorMinuto);
-  renderizarGraficoDeConteo(etiquetas, conteosPorMinuto);
+  renderizarGraficoDeDuracion(etiquetasHoras, seriesPorDia, maximoPromedio);
+  renderizarGraficoDeConteo(etiquetasHoras, seriesPorDia, maximoConteo);
   mostrarEstadoDeConsulta("Resultados listos.", "exito");
 }
 
