@@ -405,7 +405,10 @@ function cargarRegistrosEnDashboard(
     .filter(
       (registro) =>
         !Number.isNaN(registro.fechaEvento.getTime()) &&
-        !Number.isNaN(registro.tiempo)
+        !Number.isNaN(registro.tiempo) &&
+        !registro.accion.includes("Seleccion") &&
+        !registro.accion.includes("Deselección") &&
+        !registro.accion.includes("Selección")
     );
 
   if (registrosNormalizados.length === 0) {
@@ -440,9 +443,15 @@ function poblarFiltroAccion(): void {
 
   estadoDashboard.accionesDisponibles.forEach((accion) => {
     const opcion = document.createElement("option");
-    opcion.value = accion;
-    opcion.textContent = accion;
-    selectorAccion.appendChild(opcion);
+    if (
+      !accion.includes("Seleccion") &&
+      !accion.includes("Deselección") &&
+      !accion.includes("Selección")
+    ) {
+      opcion.value = accion;
+      opcion.textContent = accion;
+      selectorAccion.appendChild(opcion);
+    }
   });
 
   contenedorFiltroAccion.hidden =
@@ -826,8 +835,9 @@ const pluginEtiquetasBarras = {
   afterDatasetsDraw(chart: Grafico): void {
     const { ctx } = chart;
     ctx.save();
-    const datasets = chart.data
-      .datasets as Array<{ data?: Array<number | null | undefined> }>;
+    const datasets = chart.data.datasets as Array<{
+      data?: Array<number | null | undefined>;
+    }>;
 
     datasets.forEach((dataset, datasetIndex) => {
       const meta = chart.getDatasetMeta(datasetIndex);
@@ -969,8 +979,7 @@ function renderizarGraficoDeDuracion(
     };
   });
 
-  const limiteSuperior =
-    maximoPromedio > 7 ? Math.ceil(maximoPromedio) + 1 : 7;
+  const limiteSuperior = maximoPromedio > 7 ? Math.ceil(maximoPromedio) + 1 : 7;
 
   graficoDuracionPromedio = new Chart(lienzoGraficoDuracion, {
     type: "line",
