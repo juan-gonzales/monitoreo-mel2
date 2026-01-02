@@ -151,6 +151,75 @@ body {
   letter-spacing: 0.2px;
 }
 
+.menu-principal__grupo {
+  display: block;
+  padding: 12px 12px 10px 12px;
+}
+
+.menu-principal__grupo-cabecera {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.menu-secundario {
+  list-style: none;
+  padding: 8px 0 0 44px;
+  margin: 0;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.menu-secundario__item {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #e5edff;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.menu-secundario__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.menu-secundario__item.activo {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.menu-secundario__punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(120deg, #1f6feb, #0d9488);
+  display: inline-block;
+}
+
+.menu-secundario__texto {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.menu-principal__grupo.abierto .menu-secundario {
+  display: flex;
+}
+
+.menu-principal__grupo.activo .menu-principal__grupo-cabecera {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 2px 4px;
+}
+
 .control-menu {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
@@ -218,6 +287,10 @@ body {
   display: none;
 }
 
+.app-layout.menu-colapsado .menu-secundario {
+  display: none;
+}
+
 .menu-principal__item.activo {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
   color: #ffffff;
@@ -251,6 +324,10 @@ body {
   margin-top: 16px;
   border-top: 1px solid var(--borde-suave);
   padding-top: 16px;
+}
+
+.filtros--opensearch {
+  gap: 8px;
 }
 
 .bloque-filtros {
@@ -292,6 +369,20 @@ body {
   align-self: end;
 }
 
+.bloque-filtros--carga .grupo-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filtros-secundarios {
+  margin-top: 4px;
+}
+
+.filtros-secundarios select {
+  background-color: #ffffff;
+}
+
 .boton {
   padding: 12px 18px;
   border-radius: 10px;
@@ -303,6 +394,12 @@ body {
 .boton.primario {
   background-color: var(--color-azul);
   color: white;
+}
+
+.boton.primario:disabled,
+.boton.secundario:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .boton.secundario {
@@ -336,6 +433,10 @@ body {
   background-color: #ecfdf3;
   color: #166534;
   border-color: #22c55e;
+}
+
+.estado:not(:empty) {
+  display: block;
 }
 
 .graficos {
@@ -404,6 +505,15 @@ body {
   cursor: not-allowed;
 }
 
+.graficos--opensearch {
+  grid-template-columns: 1fr;
+}
+
+.graficos__barra--opensearch {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
 .grafico {
   background-color: var(--color-panel);
   border: 1px solid var(--borde-suave);
@@ -426,6 +536,56 @@ body {
   width: 100% !important;
   height: auto !important;
   display: block;
+}
+
+.resumen-opensearch {
+  display: grid;
+  gap: 12px;
+  padding: 10px 0;
+  margin-top: 12px;
+}
+
+.resumen-opensearch__texto {
+  margin: 0;
+  font-weight: 700;
+  color: #111827;
+}
+
+.resumen-opensearch__detalle {
+  margin: 2px 0 0 0;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.resumen-opensearch__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(31, 111, 235, 0.06), rgba(13, 148, 136, 0.06));
+  border: 1px solid var(--borde-suave);
+}
+
+.resumen-opensearch__card--suave {
+  background: #f9fafb;
+}
+
+.resumen-opensearch__card .boton {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .resumen-opensearch__card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .resumen-opensearch__card .boton {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .formulario-configuracion {

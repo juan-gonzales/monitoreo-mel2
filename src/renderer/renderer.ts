@@ -10,6 +10,20 @@ type ChartConstructor = typeof import("chart.js")["Chart"];
 // Chart se inyecta en el ámbito global mediante los scripts UMD declarados en index.html.
 declare const Chart: ChartConstructor;
 
+interface LogOpensearchNormalizado {
+  fechaEvento: Date;
+  urlService: string;
+  dataMessage: string;
+  codeStudent: string;
+  codeEmplid: string;
+  action: string;
+  status: string;
+  idTransaccion: string;
+  idSession: string;
+  message: string;
+  log: string;
+}
+
 interface RegistroNormalizado {
   fechaEvento: Date;
   accion: string;
@@ -33,6 +47,15 @@ interface EstadoDashboard {
   registrosCrudos: RegistroNormalizado[];
   registrosFiltrados: RegistroNormalizado[];
   accionesDisponibles: string[];
+}
+
+interface EstadoOpenSearch {
+  registros: LogOpensearchNormalizado[];
+  registrosFiltrados: LogOpensearchNormalizado[];
+  filtros: {
+    urlService: string;
+    dataMessage: string;
+  };
 }
 
 interface ElectronAPI {
@@ -89,6 +112,63 @@ const tituloGraficoDuracion = document.getElementById(
 const tituloGraficoConteo = document.getElementById(
   "titulo-grafico-conteo"
 ) as HTMLHeadingElement;
+const seccionLogsErrores = document.getElementById(
+  "seccion-logs-errores"
+) as HTMLElement;
+const inputFechaInicioOpensearch = document.getElementById(
+  "opensearch-fecha-inicio"
+) as HTMLInputElement;
+const inputFechaFinOpensearch = document.getElementById(
+  "opensearch-fecha-fin"
+) as HTMLInputElement;
+const botonCopiarQueryOpensearch = document.getElementById(
+  "boton-copiar-query-opensearch"
+) as HTMLButtonElement;
+const botonPegarJson = document.getElementById(
+  "boton-pegar-json"
+) as HTMLButtonElement;
+const botonSubirJson = document.getElementById(
+  "boton-subir-json"
+) as HTMLButtonElement;
+const inputArchivoOpensearch = document.getElementById(
+  "archivo-opensearch"
+) as HTMLInputElement;
+const estadoOpensearch = document.getElementById(
+  "estado-opensearch"
+) as HTMLDivElement;
+const contenedorFiltrosOpensearch = document.getElementById(
+  "filtros-opensearch"
+) as HTMLDivElement;
+const selectorUrlService = document.getElementById(
+  "filtro-url-service"
+) as HTMLSelectElement;
+const selectorDataMessage = document.getElementById(
+  "filtro-data-message"
+) as HTMLSelectElement;
+const contenedorResumenOpensearch = document.getElementById(
+  "resumen-opensearch"
+) as HTMLDivElement;
+const textoTotalAlumnos = document.getElementById(
+  "total-alumnos-afectados"
+) as HTMLSpanElement;
+const botonDescargarAlumnos = document.getElementById(
+  "boton-descargar-alumnos"
+) as HTMLButtonElement;
+const botonDescargarFiltrado = document.getElementById(
+  "boton-descargar-filtrado"
+) as HTMLButtonElement;
+const botonCopiarGraficoErrores = document.getElementById(
+  "boton-copiar-grafico-errores"
+) as HTMLButtonElement;
+const contenedorGraficoOpensearch = document.getElementById(
+  "contenedor-grafico-opensearch"
+) as HTMLDivElement;
+const lienzoGraficoErrores = document.getElementById(
+  "grafico-errores-hora"
+) as HTMLCanvasElement;
+const tituloGraficoErrores = document.getElementById(
+  "titulo-grafico-errores"
+) as HTMLHeadingElement;
 
 const TEXTO_BASE_TITULO_DURACION = "Duración promedio por minuto";
 const TEXTO_BASE_TITULO_CONTEO = "Cantidad de transacciones por minuto";
@@ -104,6 +184,7 @@ type Grafico = InstanceType<ChartConstructor>;
 
 let graficoDuracionPromedio: Grafico | undefined;
 let graficoCantidadPorMinuto: Grafico | undefined;
+let graficoErroresPorHora: Grafico | undefined;
 
 const appLayout = document.querySelector(".app-layout") as HTMLDivElement;
 const botonToggleMenu = document.getElementById(
@@ -135,6 +216,9 @@ const CONFIG_BD_POR_DEFECTO: ConfiguracionBaseDeDatos = {
 
 const itemsMenuSeccion = document.querySelectorAll(
   "[data-section]"
+) as NodeListOf<HTMLLIElement>;
+const gruposMenu = document.querySelectorAll(
+  ".menu-principal__grupo"
 ) as NodeListOf<HTMLLIElement>;
 const seccionDashboard = document.getElementById(
   "seccion-dashboard"
@@ -180,7 +264,16 @@ const estadoDashboard: EstadoDashboard = {
   accionesDisponibles: [],
 };
 
-type SeccionActiva = "dashboard" | "configuracion";
+const estadoOpenSearch: EstadoOpenSearch = {
+  registros: [],
+  registrosFiltrados: [],
+  filtros: {
+    urlService: "todos",
+    dataMessage: "todos",
+  },
+};
+
+type SeccionActiva = "dashboard" | "configuracion" | "logs-errores";
 let seccionActual: SeccionActiva = "dashboard";
 
 type TipoEstadoUI = "info" | "alerta" | "error" | "exito";
@@ -196,6 +289,14 @@ function mostrarEstadoDeConsulta(
 ): void {
   contenedorEstado.textContent = mensaje;
   contenedorEstado.className = `estado ${tipo}`;
+}
+
+function mostrarEstadoDeOpensearch(
+  mensaje: string,
+  tipo: TipoEstadoUI = "info"
+): void {
+  estadoOpensearch.textContent = mensaje;
+  estadoOpensearch.className = `estado ${tipo}`;
 }
 
 /**
@@ -371,8 +472,21 @@ function cambiarSeccion(seccion: SeccionActiva): void {
     item.classList.toggle("activo", destino === seccion);
   });
 
+  const itemSubmenuErrores = document.querySelector(
+    '.menu-secundario__item[data-section="logs-errores"]'
+  ) as HTMLLIElement | null;
+  const grupoOpensearch = itemSubmenuErrores?.closest(
+    ".menu-principal__grupo"
+  ) as HTMLLIElement | null;
+  if (seccion === "logs-errores") {
+    grupoOpensearch?.classList.add("abierto", "activo");
+  } else {
+    grupoOpensearch?.classList.remove("activo");
+  }
+
   seccionDashboard.hidden = seccion !== "dashboard";
   seccionConfiguracion.hidden = seccion !== "configuracion";
+  seccionLogsErrores.hidden = seccion !== "logs-errores";
 }
 
 /**
@@ -500,6 +614,652 @@ function leerArchivoComoTexto(archivo: File): Promise<string> {
     };
     lector.readAsText(archivo);
   });
+}
+
+function convertirFechaLocalAIso(valorFecha: string): string | null {
+  if (!valorFecha) {
+    return null;
+  }
+
+  const fecha = new Date(valorFecha);
+  if (Number.isNaN(fecha.getTime())) {
+    return null;
+  }
+
+  return fecha.toISOString();
+}
+
+function construirQueryOpensearch(
+  fechaInicioLocal: string,
+  fechaFinLocal: string
+): string | null {
+  const fechaInicioIso = convertirFechaLocalAIso(fechaInicioLocal);
+  const fechaFinIso = convertirFechaLocalAIso(fechaFinLocal);
+
+  if (!fechaInicioIso || !fechaFinIso) {
+    return null;
+  }
+
+  return `GET log-matriculaautoescalable-ms-academica-*/_search
+{
+  "size": 10000,
+  "_source": [
+    "@timestamp",
+    "idTransaccion",
+    "idSession",
+    "status",
+    "action",
+    "message",
+    "data.message",
+    "code_student",
+    "code_emplid",
+    "urlService",
+    "log"
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "${fechaInicioIso}",
+              "lte": "${fechaFinIso}"
+            }
+          }
+        },
+        {
+          "match": {
+            "status": "ERROR"
+          }
+        },
+        {
+          "exists": {
+            "field": "action"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {
+            "message": "healthcheck"
+          }
+        },
+        {
+          "match_phrase": {
+            "action": "Error logic in controller"
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ]
+}`;
+}
+
+async function copiarQueryDeOpensearch(): Promise<void> {
+  const query = construirQueryOpensearch(
+    inputFechaInicioOpensearch.value,
+    inputFechaFinOpensearch.value
+  );
+
+  if (!query) {
+    mostrarEstadoDeOpensearch(
+      "Indica fecha inicio y fecha fin para construir la query.",
+      "alerta"
+    );
+    return;
+  }
+
+  try {
+    botonCopiarQueryOpensearch.disabled = true;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(query);
+      mostrarEstadoDeOpensearch("Query copiada al portapapeles.", "exito");
+      return;
+    }
+
+    const area = document.createElement("textarea");
+    area.value = query;
+    area.setAttribute("readonly", "true");
+    area.style.position = "absolute";
+    area.style.left = "-9999px";
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    document.body.removeChild(area);
+    mostrarEstadoDeOpensearch("Query copiada al portapapeles.", "exito");
+  } catch (error) {
+    console.error("No se pudo copiar la query:", error);
+    mostrarEstadoDeOpensearch(
+      "No se pudo copiar la query. Copia manualmente el texto generado.",
+      "error"
+    );
+  } finally {
+    botonCopiarQueryOpensearch.disabled = false;
+  }
+}
+
+function extraerHitsDeRespuesta(json: unknown): unknown[] {
+  if (!json) {
+    return [];
+  }
+
+  if (Array.isArray(json)) {
+    return json;
+  }
+
+  if (Array.isArray((json as { hits?: unknown }).hits)) {
+    return (json as { hits?: unknown[] }).hits ?? [];
+  }
+
+  const hitsAnidados = (json as { hits?: { hits?: unknown[] } }).hits?.hits;
+  if (Array.isArray(hitsAnidados)) {
+    return hitsAnidados;
+  }
+
+  return [];
+}
+
+function normalizarHitDeOpensearch(
+  hit: unknown
+): LogOpensearchNormalizado | null {
+  const conFuente =
+    (hit as { _source?: unknown })._source ??
+    (hit as { source?: unknown }).source ??
+    hit;
+
+  if (!conFuente || typeof conFuente !== "object") {
+    return null;
+  }
+
+  const fuente = conFuente as Record<string, unknown>;
+  const fechaIso =
+    (fuente["@timestamp"] as string | undefined) ||
+    (fuente.timestamp as string | undefined);
+
+  if (!fechaIso) {
+    return null;
+  }
+
+  const fecha = new Date(fechaIso);
+  if (Number.isNaN(fecha.getTime())) {
+    return null;
+  }
+
+  const data = (fuente.data as { message?: unknown }) || {};
+
+  return {
+    fechaEvento: fecha,
+    urlService: String(fuente.urlService ?? ""),
+    dataMessage: String(data.message ?? ""),
+    codeStudent: String(fuente.code_student ?? fuente.codeStudent ?? ""),
+    codeEmplid: String(fuente.code_emplid ?? fuente.codeEmplid ?? ""),
+    action: String(fuente.action ?? ""),
+    status: String(fuente.status ?? ""),
+    idTransaccion: String(fuente.idTransaccion ?? ""),
+    idSession: String(fuente.idSession ?? ""),
+    message: String(fuente.message ?? ""),
+    log: String(fuente.log ?? ""),
+  };
+}
+
+function parsearRespuestaDeOpensearch(contenido: string): LogOpensearchNormalizado[] {
+  let json: unknown;
+  try {
+    json = JSON.parse(contenido);
+  } catch (error) {
+    console.error("JSON inválido de opensearch:", error);
+    throw new Error("El contenido no es un JSON válido.");
+  }
+
+  const hits = extraerHitsDeRespuesta(json);
+  if (!hits || hits.length === 0) {
+    return [];
+  }
+
+  return hits
+    .map(normalizarHitDeOpensearch)
+    .filter((registro): registro is LogOpensearchNormalizado => registro !== null);
+}
+
+function renderizarGraficoErroresPorHora(
+  etiquetasHoras: string[],
+  seriesPorDia: { dia: string; conteosPorHora: (number | null)[] }[],
+  maximoConteo: number
+): void {
+  if (graficoErroresPorHora) {
+    graficoErroresPorHora.destroy();
+  }
+
+  const datasets = seriesPorDia.map((serie, indice) => {
+    const color = obtenerColorDeSerie(indice + 2);
+    return {
+      label: serie.dia,
+      data: serie.conteosPorHora,
+      borderColor: color,
+      backgroundColor: colorConOpacidad(color, 0.2),
+      tension: 0,
+      spanGaps: false,
+      pointRadius: 2,
+      fill: false,
+    };
+  });
+
+  const limiteSuperior = Math.max(1, Math.ceil(maximoConteo) + 1);
+
+  graficoErroresPorHora = new Chart(lienzoGraficoErrores, {
+    type: "line",
+    data: {
+      labels: etiquetasHoras,
+      datasets,
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: {
+          ticks: { color: "#374151", maxRotation: 0, autoSkip: true },
+          grid: { color: "#e5e7eb" },
+        },
+        y: {
+          beginAtZero: true,
+          max: limiteSuperior,
+          ticks: { color: "#374151", stepSize: 1 },
+          grid: { color: "#e5e7eb" },
+        },
+      },
+      plugins: {
+        legend: { display: true, labels: { color: "#111827", boxWidth: 16 } },
+        title: {
+          display: true,
+          text: tituloGraficoErrores?.textContent ?? "Errores por hora",
+          color: "#111827",
+          font: { weight: "bold", size: 16 },
+          padding: { bottom: 12 },
+        },
+      },
+    },
+  });
+}
+
+function calcularSeriesErroresPorDia(
+  registros: LogOpensearchNormalizado[]
+): {
+  etiquetasHoras: string[];
+  seriesPorDia: { dia: string; conteosPorHora: (number | null)[] }[];
+  maximoConteo: number;
+} {
+  const horasEncontradas = new Set<string>();
+  const mapaPorDia = new Map<string, Map<string, number>>();
+
+  registros.forEach((registro) => {
+    const marcaHora = new Date(registro.fechaEvento);
+    marcaHora.setSeconds(0, 0);
+    const claveHora = formatearHoraParaEtiqueta(marcaHora);
+    const claveDia = obtenerIdDia(marcaHora);
+    horasEncontradas.add(claveHora);
+
+    const mapaHoras = mapaPorDia.get(claveDia) ?? new Map<string, number>();
+    const conteoActual = mapaHoras.get(claveHora) ?? 0;
+    mapaHoras.set(claveHora, conteoActual + 1);
+    mapaPorDia.set(claveDia, mapaHoras);
+  });
+
+  const etiquetasHoras = Array.from(horasEncontradas).sort();
+  const seriesPorDia = Array.from(mapaPorDia.entries())
+    .sort(([diaA], [diaB]) => diaA.localeCompare(diaB))
+    .map(([dia, mapaHoras]) => {
+      const conteosPorHora: (number | null)[] = [];
+      etiquetasHoras.forEach((hora) => {
+        const valor = mapaHoras.get(hora);
+        conteosPorHora.push(valor ?? null);
+      });
+      return { dia, conteosPorHora };
+    });
+
+  const valores = seriesPorDia.flatMap((serie) =>
+    serie.conteosPorHora.filter(
+      (valor): valor is number => valor !== null && !Number.isNaN(valor)
+    )
+  );
+  const maximoConteo = valores.length > 0 ? Math.max(...valores) : 0;
+
+  return { etiquetasHoras, seriesPorDia, maximoConteo };
+}
+
+function obtenerMensajesPorUrl(urlService: string): string[] {
+  return Array.from(
+    new Set(
+      estadoOpenSearch.registros
+        .filter(
+          (registro) => urlService === "todos" || registro.urlService === urlService
+        )
+        .map((registro) => registro.dataMessage || registro.message)
+        .filter((valor) => valor && valor.trim().length > 0)
+    )
+  ).sort();
+}
+
+function actualizarMensajesDisponibles(urlSeleccionada: string): void {
+  const mensajes = obtenerMensajesPorUrl(urlSeleccionada);
+  const seleccionPrev = selectorDataMessage.value;
+
+  selectorDataMessage.innerHTML = "";
+  const opcionTodosMensaje = document.createElement("option");
+  opcionTodosMensaje.value = "todos";
+  opcionTodosMensaje.textContent = "Todos los mensajes";
+  selectorDataMessage.appendChild(opcionTodosMensaje);
+
+  mensajes.forEach((mensaje) => {
+    const opcion = document.createElement("option");
+    opcion.value = mensaje;
+    opcion.textContent = mensaje;
+    selectorDataMessage.appendChild(opcion);
+  });
+
+  selectorDataMessage.value = mensajes.includes(seleccionPrev)
+    ? seleccionPrev
+    : "todos";
+}
+
+function poblarFiltrosDeOpensearch(): void {
+  const urls = Array.from(
+    new Set(
+      estadoOpenSearch.registros
+        .map((registro) => registro.urlService)
+        .filter((valor) => valor && valor.trim().length > 0)
+    )
+  ).sort();
+  const mensajesTotales = obtenerMensajesPorUrl("todos");
+
+  selectorUrlService.innerHTML = "";
+  selectorDataMessage.innerHTML = "";
+
+  const opcionTodosUrl = document.createElement("option");
+  opcionTodosUrl.value = "todos";
+  opcionTodosUrl.textContent = "Todos los servicios";
+  selectorUrlService.appendChild(opcionTodosUrl);
+
+  urls.forEach((url) => {
+    const opcion = document.createElement("option");
+    opcion.value = url;
+    opcion.textContent = url;
+    selectorUrlService.appendChild(opcion);
+  });
+
+  selectorUrlService.value = "todos";
+  selectorDataMessage.value = "todos";
+  actualizarMensajesDisponibles("todos");
+  contenedorFiltrosOpensearch.hidden =
+    urls.length === 0 && mensajesTotales.length === 0;
+}
+
+function actualizarResumenDeAlumnos(
+  registros: LogOpensearchNormalizado[]
+): void {
+  const mapaAlumnos = new Map<string, string>();
+  registros.forEach((registro) => {
+    const claveAlumno = registro.codeEmplid || registro.codeStudent;
+    if (!claveAlumno) {
+      return;
+    }
+    if (!mapaAlumnos.has(claveAlumno)) {
+      mapaAlumnos.set(claveAlumno, registro.codeStudent || registro.codeEmplid);
+    }
+  });
+
+  const total = mapaAlumnos.size;
+  textoTotalAlumnos.textContent = total.toString();
+  contenedorResumenOpensearch.hidden = registros.length === 0;
+}
+
+function aplicarFiltrosDeOpensearch(): void {
+  const urlSeleccionada = selectorUrlService.value;
+  const mensajeSeleccionado = selectorDataMessage.value;
+
+  estadoOpenSearch.filtros = {
+    urlService: urlSeleccionada,
+    dataMessage: mensajeSeleccionado,
+  };
+
+  estadoOpenSearch.registrosFiltrados = estadoOpenSearch.registros.filter(
+    (registro) => {
+      const coincideUrl =
+        urlSeleccionada === "todos" || registro.urlService === urlSeleccionada;
+      const mensajeBase = registro.dataMessage || registro.message;
+      const coincideMensaje =
+        mensajeSeleccionado === "todos" || mensajeBase === mensajeSeleccionado;
+
+      return coincideUrl && coincideMensaje;
+    }
+  );
+
+  const textoUrl =
+    selectorUrlService.options[selectorUrlService.selectedIndex]?.textContent ||
+    "Todos los servicios";
+  const textoMensaje =
+    selectorDataMessage.options[selectorDataMessage.selectedIndex]
+      ?.textContent || "Todos los mensajes";
+  if (tituloGraficoErrores) {
+    tituloGraficoErrores.textContent = `Errores por hora - ${textoUrl} / ${textoMensaje}`;
+  }
+
+  if (estadoOpenSearch.registrosFiltrados.length === 0) {
+    contenedorGraficoOpensearch.hidden = true;
+    contenedorResumenOpensearch.hidden = true;
+    graficoErroresPorHora?.destroy();
+    mostrarEstadoDeOpensearch(
+      "No hay datos para los filtros seleccionados.",
+      "alerta"
+    );
+    return;
+  }
+
+  const { etiquetasHoras, seriesPorDia, maximoConteo } =
+    calcularSeriesErroresPorDia(estadoOpenSearch.registrosFiltrados);
+  if (etiquetasHoras.length === 0) {
+    contenedorGraficoOpensearch.hidden = true;
+    contenedorResumenOpensearch.hidden = true;
+    mostrarEstadoDeOpensearch(
+      "No hay marcas de tiempo válidas para graficar.",
+      "alerta"
+    );
+    return;
+  }
+  contenedorGraficoOpensearch.hidden = etiquetasHoras.length === 0;
+  actualizarResumenDeAlumnos(estadoOpenSearch.registrosFiltrados);
+  renderizarGraficoErroresPorHora(etiquetasHoras, seriesPorDia, maximoConteo);
+  mostrarEstadoDeOpensearch("Datos listos para análisis.", "exito");
+}
+
+async function cargarJsonDeOpensearch(
+  contenido: string,
+  origen: "portapapeles" | "archivo"
+): Promise<void> {
+  mostrarEstadoDeOpensearch("Procesando datos...", "info");
+  graficoErroresPorHora?.destroy();
+  contenedorGraficoOpensearch.hidden = true;
+  contenedorResumenOpensearch.hidden = true;
+
+  try {
+    const registros = parsearRespuestaDeOpensearch(contenido);
+    if (registros.length === 0) {
+      mostrarEstadoDeOpensearch(
+        "El JSON no tiene hits con datos aprovechables.",
+        "alerta"
+      );
+      estadoOpenSearch.registros = [];
+      estadoOpenSearch.registrosFiltrados = [];
+      contenedorFiltrosOpensearch.hidden = true;
+      return;
+    }
+
+    estadoOpenSearch.registros = registros;
+    estadoOpenSearch.registrosFiltrados = registros;
+    poblarFiltrosDeOpensearch();
+    contenedorFiltrosOpensearch.hidden = false;
+    aplicarFiltrosDeOpensearch();
+    mostrarEstadoDeOpensearch(
+      `Datos cargados desde ${origen === "archivo" ? "archivo" : "portapapeles"}.`,
+      "exito"
+    );
+  } catch (error) {
+    console.error("No se pudo procesar el JSON de opensearch:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "Error desconocido al leer el JSON.";
+    mostrarEstadoDeOpensearch(mensaje, "error");
+  }
+}
+
+async function manejarPegadoDeJson(): Promise<void> {
+  if (!navigator.clipboard?.readText) {
+    mostrarEstadoDeOpensearch(
+      "Tu entorno no permite leer texto del portapapeles.",
+      "alerta"
+    );
+    return;
+  }
+
+  try {
+    botonPegarJson.disabled = true;
+    const contenido = await navigator.clipboard.readText();
+    if (!contenido) {
+      mostrarEstadoDeOpensearch(
+        "El portapapeles está vacío o no contiene texto.",
+        "alerta"
+      );
+      return;
+    }
+
+    await cargarJsonDeOpensearch(contenido, "portapapeles");
+  } finally {
+    botonPegarJson.disabled = false;
+  }
+}
+
+async function manejarCargaDeArchivoOpensearch(): Promise<void> {
+  const archivo = inputArchivoOpensearch.files?.[0];
+  if (!archivo) {
+    return;
+  }
+
+  try {
+    botonSubirJson.disabled = true;
+    mostrarEstadoDeOpensearch(`Leyendo ${archivo.name}...`, "info");
+    const contenido = await leerArchivoComoTexto(archivo);
+    await cargarJsonDeOpensearch(contenido, "archivo");
+  } finally {
+    botonSubirJson.disabled = false;
+    inputArchivoOpensearch.value = "";
+  }
+}
+
+function descargarAlumnosAfectados(): void {
+  if (estadoOpenSearch.registrosFiltrados.length === 0) {
+    mostrarEstadoDeOpensearch(
+      "No hay datos filtrados para exportar.",
+      "alerta"
+    );
+    return;
+  }
+
+  const mapaAlumnos = new Map<string, string>();
+  estadoOpenSearch.registrosFiltrados.forEach((registro) => {
+    const claveAlumno = registro.codeEmplid || registro.codeStudent;
+    if (!claveAlumno) {
+      return;
+    }
+    if (!mapaAlumnos.has(claveAlumno)) {
+      mapaAlumnos.set(claveAlumno, registro.codeStudent || registro.codeEmplid);
+    }
+  });
+
+  if (mapaAlumnos.size === 0) {
+    mostrarEstadoDeOpensearch(
+      "No hay code_emplid ni code_student presentes para exportar.",
+      "alerta"
+    );
+    return;
+  }
+
+  const lineas = ["code_emplid,code_student"];
+  mapaAlumnos.forEach((codeStudent, codeEmplid) => {
+    lineas.push(`${codeEmplid},"${codeStudent.replace(/"/g, '""')}"`);
+  });
+
+  const blob = new Blob([lineas.join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = "alumnos-afectados.csv";
+  document.body.appendChild(enlace);
+  enlace.click();
+  document.body.removeChild(enlace);
+  URL.revokeObjectURL(url);
+  mostrarEstadoDeOpensearch("Archivo generado.", "exito");
+}
+
+function descargarFiltradoCompleto(): void {
+  if (estadoOpenSearch.registrosFiltrados.length === 0) {
+    mostrarEstadoDeOpensearch(
+      "No hay datos filtrados para exportar.",
+      "alerta"
+    );
+    return;
+  }
+
+  const encabezados = [
+    "@timestamp",
+    "urlService",
+    "data.message",
+    "code_student",
+    "code_emplid",
+    "action",
+    "status",
+    "idTransaccion",
+    "idSession",
+    "message",
+    "log",
+  ];
+
+  const lineas = [encabezados.join(",")];
+  estadoOpenSearch.registrosFiltrados.forEach((registro) => {
+    const fila = [
+      registro.fechaEvento.toISOString(),
+      registro.urlService,
+      registro.dataMessage || registro.message,
+      registro.codeStudent,
+      registro.codeEmplid,
+      registro.action,
+      registro.status,
+      registro.idTransaccion,
+      registro.idSession,
+      registro.message,
+      registro.log,
+    ].map((valor) => {
+      const texto = valor ?? "";
+      const seguro = String(texto).replace(/"/g, '""');
+      return `"${seguro}"`;
+    });
+    lineas.push(fila.join(","));
+  });
+
+  const blob = new Blob([lineas.join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = "opensearch-filtrado.csv";
+  document.body.appendChild(enlace);
+  enlace.click();
+  document.body.removeChild(enlace);
+  URL.revokeObjectURL(url);
+  mostrarEstadoDeOpensearch("Archivo de datos filtrados generado.", "exito");
 }
 
 /**
@@ -692,6 +1452,75 @@ async function copiarGraficosComoImagen(): Promise<void> {
   } finally {
     botonCopiarGraficos.disabled = false;
     textoBotonCopiar.textContent = "Copiar";
+  }
+}
+
+async function copiarGraficoErroresComoImagen(): Promise<void> {
+  if (contenedorGraficoOpensearch.hidden) {
+    return;
+  }
+
+  if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+    mostrarEstadoDeOpensearch(
+      "Tu entorno no permite copiar imágenes al portapapeles.",
+      "alerta"
+    );
+    return;
+  }
+
+  const tarjeta = contenedorGraficoOpensearch.querySelector(
+    ".grafico"
+  ) as HTMLDivElement | null;
+  if (!tarjeta) {
+    mostrarEstadoDeOpensearch("No se encontró el gráfico para copiar.", "alerta");
+    return;
+  }
+
+  try {
+    botonCopiarGraficoErrores.disabled = true;
+    const lienzo = tarjeta.querySelector("canvas") as HTMLCanvasElement | null;
+    if (!lienzo) {
+      mostrarEstadoDeOpensearch("No se encontró el lienzo del gráfico.", "alerta");
+      return;
+    }
+    const img = await imagenDesdeCanvas(lienzo);
+    const rect = tarjeta.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(Math.round(rect.width * dpr), 1);
+    canvas.height = Math.max(Math.round(rect.height * dpr), 1);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("No se pudo preparar el lienzo.");
+    }
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = COLOR_PANEL || "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.drawImage(img, 0, 0, rect.width, rect.height);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((resultado) => {
+        if (resultado) {
+          resolve(resultado);
+        } else {
+          reject(new Error("No se pudo preparar la imagen para copiar."));
+        }
+      });
+    });
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "image/png": blob,
+      }),
+    ]);
+    mostrarEstadoDeOpensearch("Gráfico copiado como imagen.", "exito");
+  } catch (error) {
+    console.error("Error al copiar gráfico de errores:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "No se pudo copiar la imagen.";
+    mostrarEstadoDeOpensearch(mensaje, "error");
+  } finally {
+    botonCopiarGraficoErrores.disabled = false;
   }
 }
 
@@ -1244,6 +2073,43 @@ botonCopiarGraficos.addEventListener("click", () => {
   void copiarGraficosComoImagen();
 });
 
+botonCopiarQueryOpensearch.addEventListener("click", () => {
+  void copiarQueryDeOpensearch();
+});
+
+botonPegarJson.addEventListener("click", () => {
+  void manejarPegadoDeJson();
+});
+
+botonSubirJson.addEventListener("click", () => {
+  inputArchivoOpensearch.click();
+});
+
+inputArchivoOpensearch.addEventListener("change", () => {
+  void manejarCargaDeArchivoOpensearch();
+});
+
+selectorUrlService.addEventListener("change", () => {
+  actualizarMensajesDisponibles(selectorUrlService.value);
+  aplicarFiltrosDeOpensearch();
+});
+
+selectorDataMessage.addEventListener("change", () => {
+  aplicarFiltrosDeOpensearch();
+});
+
+botonDescargarAlumnos.addEventListener("click", () => {
+  descargarAlumnosAfectados();
+});
+
+botonDescargarFiltrado.addEventListener("click", () => {
+  descargarFiltradoCompleto();
+});
+
+botonCopiarGraficoErrores.addEventListener("click", () => {
+  void copiarGraficoErroresComoImagen();
+});
+
 itemsMenuSeccion.forEach((item) => {
   item.addEventListener("click", () => {
     const destino = item.dataset.section as SeccionActiva | undefined;
@@ -1259,12 +2125,26 @@ itemsMenuSeccion.forEach((item) => {
   });
 });
 
+gruposMenu.forEach((grupo) => {
+  const cabecera = grupo.querySelector(
+    ".menu-principal__grupo-cabecera"
+  ) as HTMLDivElement | null;
+  cabecera?.addEventListener("click", (evento) => {
+    evento.stopPropagation();
+    grupo.classList.toggle("abierto");
+  });
+});
+
 formularioConfiguracion.addEventListener("submit", (evento) => {
   void manejarGuardadoDeConfiguracion(evento);
 });
 
 botonRecargarConfiguracion.addEventListener("click", () => {
   void cargarConfiguracionDeEnv();
+});
+
+gruposMenu.forEach((grupo) => {
+  grupo.classList.remove("abierto");
 });
 
 cambiarSeccion(seccionActual);

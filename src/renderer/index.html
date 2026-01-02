@@ -59,18 +59,26 @@
               </span>
               <span class="menu-principal__texto">Dashboard</span>
             </li>
-            <li class="menu-principal__item" title="Consultas">
-              <span aria-hidden="true" class="menu-principal__icono">
-                <svg viewBox="0 0 24 24">
-                  <path
-                    d="M6.25 5.75C6.25 4.64543 7.14543 3.75 8.25 3.75H15.75C16.8546 3.75 17.75 4.64543 17.75 5.75V18.25C17.75 19.3546 16.8546 20.25 15.75 20.25H8.25C7.14543 20.25 6.25 19.3546 6.25 18.25V5.75Z"
-                  />
-                  <path d="M9 8.25H15" />
-                  <path d="M9 12H15" />
-                  <path d="M9 15.75H13" />
-                </svg>
-              </span>
-              <span class="menu-principal__texto">Consultas</span>
+            <li class="menu-principal__item menu-principal__grupo" title="Logs Opensearch">
+              <div class="menu-principal__grupo-cabecera">
+                <span aria-hidden="true" class="menu-principal__icono">
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M6.25 5.75C6.25 4.64543 7.14543 3.75 8.25 3.75H15.75C16.8546 3.75 17.75 4.64543 17.75 5.75V18.25C17.75 19.3546 16.8546 20.25 15.75 20.25H8.25C7.14543 20.25 6.25 19.3546 6.25 18.25V5.75Z"
+                    />
+                    <path d="M9 8.25H15" />
+                    <path d="M9 12H15" />
+                    <path d="M9 15.75H13" />
+                  </svg>
+                </span>
+                <span class="menu-principal__texto">Logs Opensearch</span>
+              </div>
+              <ul class="menu-secundario">
+                <li class="menu-secundario__item" data-section="logs-errores" title="Errores">
+                  <span class="menu-secundario__punto" aria-hidden="true"></span>
+                  <span class="menu-secundario__texto">Errores</span>
+                </li>
+              </ul>
             </li>
             <li class="menu-principal__item" title="Detalle de logs">
               <span aria-hidden="true" class="menu-principal__icono">
@@ -176,6 +184,106 @@
               </svg>
               <span>Copiar</span>
             </button>
+          </div>
+        </section>
+        <section id="seccion-logs-errores" class="panel" hidden>
+          <header>
+            <h2>Logs Opensearch - Errores</h2>
+            <p class="subtitulo">
+              Prepara la query, pega el resultado en JSON y visualiza los errores por hora. Filtra por servicio y mensaje.
+            </p>
+          </header>
+          <div class="filtros filtros--opensearch">
+            <div class="bloque-filtros">
+              <div class="campo-formulario">
+                <label for="opensearch-fecha-inicio">Fecha inicio *</label>
+                <input type="datetime-local" id="opensearch-fecha-inicio" />
+              </div>
+              <div class="campo-formulario">
+                <label for="opensearch-fecha-fin">Fecha fin *</label>
+                <input type="datetime-local" id="opensearch-fecha-fin" />
+              </div>
+              <div class="campo-formulario botonera">
+                <button id="boton-copiar-query-opensearch" class="boton primario" type="button">
+                  Copiar query de búsqueda
+                </button>
+              </div>
+            </div>
+            <div class="bloque-filtros bloque-filtros--carga">
+              <div class="campo-formulario">
+                <label for="archivo-opensearch">Pegar o cargar resultado</label>
+                <div class="grupo-botones">
+                  <button id="boton-pegar-json" class="boton secundario" type="button">
+                    Pegar JSON desde portapapeles
+                  </button>
+                  <button id="boton-subir-json" class="boton secundario" type="button">
+                    Cargar archivo JSON
+                  </button>
+                  <input type="file" id="archivo-opensearch" accept=".json,application/json" hidden />
+                </div>
+              </div>
+            </div>
+            <div id="estado-opensearch" class="estado"></div>
+            <div class="bloque-filtros filtros-secundarios" id="filtros-opensearch" hidden>
+              <div class="campo-formulario">
+                <label for="filtro-url-service">Filtrar por urlService</label>
+                <select id="filtro-url-service"></select>
+              </div>
+              <div class="campo-formulario">
+                <label for="filtro-data-message">Filtrar por data.message</label>
+                <select id="filtro-data-message"></select>
+              </div>
+            </div>
+          </div>
+          <div class="resumen-opensearch" id="resumen-opensearch" hidden>
+            <div class="resumen-opensearch__card">
+              <div>
+                <p class="resumen-opensearch__texto">
+                  Total de alumnos afectados <span id="total-alumnos-afectados">0</span>
+                </p>
+                <p class="resumen-opensearch__detalle">
+                  Cuenta única por code_emplid o code_student de los registros filtrados.
+                </p>
+              </div>
+              <button id="boton-descargar-alumnos" class="boton primario" type="button">
+                Descargar Excel (code_emplid, code_student)
+              </button>
+            </div>
+            <div class="resumen-opensearch__card resumen-opensearch__card--suave">
+              <div>
+                <p class="resumen-opensearch__texto">Data filtrada</p>
+                <p class="resumen-opensearch__detalle">
+                  Exporta todas las filas visibles (hits) con los campos principales.
+                </p>
+              </div>
+              <button id="boton-descargar-filtrado" class="boton secundario" type="button">
+                Descargar Excel (data filtrada)
+              </button>
+            </div>
+          </div>
+          <div class="graficos graficos--opensearch" id="contenedor-grafico-opensearch" hidden>
+            <div class="grafico">
+              <header>
+                <h3 id="titulo-grafico-errores">Errores por hora</h3>
+                <p>Conteo de eventos filtrados agrupados por hora.</p>
+              </header>
+              <canvas id="grafico-errores-hora"></canvas>
+            </div>
+            <div class="graficos__barra graficos__barra--opensearch">
+              <div>
+                <p class="graficos__titulo">Gráfico generado</p>
+                <p class="graficos__ayuda">Copia la vista actual como imagen para pegarla en informes.</p>
+              </div>
+              <button id="boton-copiar-grafico-errores" class="boton-icono" type="button" aria-label="Copiar gráfico de errores como imagen">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M8 3h10a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h10V9H5Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span>Copiar</span>
+              </button>
+            </div>
           </div>
         </section>
         <section id="seccion-configuracion" class="panel" hidden>
