@@ -58,12 +58,94 @@ interface EstadoOpenSearch {
   };
 }
 
+interface LogDetalleOpensearch {
+  fechaEvento: Date;
+  urlService: string;
+  codeStudent: string;
+  codeEmplid: string;
+  action: string;
+  message: string;
+  status: string;
+  idTransaccion: string;
+  idSession: string;
+  data: unknown;
+}
+
+interface RegistroDetalleAccionNormalizado {
+  accion: string;
+  codAlumno: string;
+  codUser: string;
+  fecha: Date;
+  message: string;
+  status: string;
+  tiempo: number | string;
+  periodo: string;
+  data: string;
+}
+
+interface RegistroDetalleEventoNormalizado {
+  urlService: string;
+  status: string;
+  codeStudent: string;
+  codeEmplid: string;
+  action: string;
+  message: string;
+  event: string;
+  duration: number | string;
+  data: string;
+  code: string;
+  fecha: Date;
+}
+
+interface EstadoDetalleLogs {
+  filtros: {
+    idTransaccion: string;
+    idSession: string;
+  };
+  opensearch: LogDetalleOpensearch[];
+  logacciones: RegistroDetalleAccionNormalizado[];
+  logeventos: RegistroDetalleEventoNormalizado[];
+}
+
+interface RegistroDetalleAccionBD {
+  accion: string;
+  cod_alumno: string | null;
+  cod_user: string | null;
+  fecha: string;
+  message: string | null;
+  status: string | null;
+  tiempo: number | string | null;
+  periodo: string | null;
+  data: unknown;
+}
+
+interface RegistroDetalleEventoBD {
+  url_service: string | null;
+  status: string | null;
+  code_student: string | null;
+  code_emplid: string | null;
+  action: string | null;
+  message: string | null;
+  event: string | null;
+  duration: number | string | null;
+  data: unknown;
+  code: string | null;
+  fecha: string;
+}
+
 interface ElectronAPI {
   ejecutarConsultaDeLogs: (fechas: {
     fechaInicioIso: string;
     fechaFinIso: string;
   }) => Promise<{
     registrosCrudos: RegistroCrudo[];
+  }>;
+  consultarDetalleDeLogs: (filtros: {
+    idTransaccion?: string;
+    idSession?: string;
+  }) => Promise<{
+    acciones: RegistroDetalleAccionBD[];
+    eventos: RegistroDetalleEventoBD[];
   }>;
   obtenerConfiguracionDeEnv: () => Promise<RespuestaConfiguracion>;
   guardarConfiguracionDeEnv: (
@@ -169,6 +251,54 @@ const lienzoGraficoErrores = document.getElementById(
 const tituloGraficoErrores = document.getElementById(
   "titulo-grafico-errores"
 ) as HTMLHeadingElement;
+const seccionDetalleLogs = document.getElementById(
+  "seccion-detalle-logs"
+) as HTMLElement;
+const inputDetalleIdTransaccion = document.getElementById(
+  "detalle-id-transaccion"
+) as HTMLInputElement;
+const inputDetalleIdSession = document.getElementById(
+  "detalle-id-session"
+) as HTMLInputElement;
+const botonGenerarDetalle = document.getElementById(
+  "boton-generar-detalle"
+) as HTMLButtonElement;
+const botonCopiarQueryDetalle = document.getElementById(
+  "boton-copiar-query-detalle"
+) as HTMLButtonElement;
+const botonDetallePegarJson = document.getElementById(
+  "boton-detalle-pegar-json"
+) as HTMLButtonElement;
+const botonDetalleSubirJson = document.getElementById(
+  "boton-detalle-subir-json"
+) as HTMLButtonElement;
+const inputArchivoDetalleOpensearch = document.getElementById(
+  "archivo-detalle-opensearch"
+) as HTMLInputElement;
+const estadoDetalleUI = document.getElementById(
+  "estado-detalle-logs"
+) as HTMLDivElement;
+const badgeDetalleOpensearch = document.getElementById(
+  "detalle-opensearch-total"
+) as HTMLSpanElement;
+const avisoDetalleOpensearch = document.getElementById(
+  "detalle-opensearch-aviso"
+) as HTMLParagraphElement;
+const badgeDetalleAcciones = document.getElementById(
+  "detalle-acciones-total"
+) as HTMLSpanElement;
+const badgeDetalleEventos = document.getElementById(
+  "detalle-eventos-total"
+) as HTMLSpanElement;
+const cuerpoDetalleOpensearch = document.getElementById(
+  "detalle-opensearch-cuerpo"
+) as HTMLTableSectionElement;
+const cuerpoDetalleAcciones = document.getElementById(
+  "detalle-acciones-cuerpo"
+) as HTMLTableSectionElement;
+const cuerpoDetalleEventos = document.getElementById(
+  "detalle-eventos-cuerpo"
+) as HTMLTableSectionElement;
 
 const TEXTO_BASE_TITULO_DURACION = "Duración promedio por minuto";
 const TEXTO_BASE_TITULO_CONTEO = "Cantidad de transacciones por minuto";
@@ -179,6 +309,15 @@ const lienzoGraficoDuracion = document.getElementById(
 const lienzoGraficoCantidad = document.getElementById(
   "grafico-cantidad"
 ) as HTMLCanvasElement;
+const modalDetalleOpensearch = document.getElementById(
+  "modal-detalle-opensearch"
+) as HTMLDivElement;
+const modalDetalleCuerpo = document.getElementById(
+  "modal-detalle-cuerpo"
+) as HTMLDivElement;
+const botonModalCerrar = document.getElementById(
+  "modal-detalle-cerrar"
+) as HTMLButtonElement;
 
 type Grafico = InstanceType<ChartConstructor>;
 
@@ -273,7 +412,21 @@ const estadoOpenSearch: EstadoOpenSearch = {
   },
 };
 
-type SeccionActiva = "dashboard" | "configuracion" | "logs-errores";
+const estadoDetalleLogs: EstadoDetalleLogs = {
+  filtros: {
+    idTransaccion: "",
+    idSession: "",
+  },
+  opensearch: [],
+  logacciones: [],
+  logeventos: [],
+};
+
+type SeccionActiva =
+  | "dashboard"
+  | "configuracion"
+  | "logs-errores"
+  | "detalle-logs";
 let seccionActual: SeccionActiva = "dashboard";
 
 type TipoEstadoUI = "info" | "alerta" | "error" | "exito";
@@ -297,6 +450,14 @@ function mostrarEstadoDeOpensearch(
 ): void {
   estadoOpensearch.textContent = mensaje;
   estadoOpensearch.className = `estado ${tipo}`;
+}
+
+function mostrarEstadoDetalleLogs(
+  mensaje: string,
+  tipo: TipoEstadoUI = "info"
+): void {
+  estadoDetalleUI.textContent = mensaje;
+  estadoDetalleUI.className = `estado ${tipo}`;
 }
 
 /**
@@ -487,6 +648,7 @@ function cambiarSeccion(seccion: SeccionActiva): void {
   seccionDashboard.hidden = seccion !== "dashboard";
   seccionConfiguracion.hidden = seccion !== "configuracion";
   seccionLogsErrores.hidden = seccion !== "logs-errores";
+  seccionDetalleLogs.hidden = seccion !== "detalle-logs";
 }
 
 /**
@@ -806,13 +968,7 @@ function normalizarHitDeOpensearch(
 }
 
 function parsearRespuestaDeOpensearch(contenido: string): LogOpensearchNormalizado[] {
-  let json: unknown;
-  try {
-    json = JSON.parse(contenido);
-  } catch (error) {
-    console.error("JSON inválido de opensearch:", error);
-    throw new Error("El contenido no es un JSON válido.");
-  }
+  const json = parsearContenidoJsonLaxo(contenido);
 
   const hits = extraerHitsDeRespuesta(json);
   if (!hits || hits.length === 0) {
@@ -1260,6 +1416,723 @@ function descargarFiltradoCompleto(): void {
   document.body.removeChild(enlace);
   URL.revokeObjectURL(url);
   mostrarEstadoDeOpensearch("Archivo de datos filtrados generado.", "exito");
+}
+
+async function copiarTextoAlPortapapeles(texto: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(texto);
+    return;
+  }
+
+  const area = document.createElement("textarea");
+  area.value = texto;
+  area.setAttribute("readonly", "true");
+  area.style.position = "absolute";
+  area.style.left = "-9999px";
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand("copy");
+  document.body.removeChild(area);
+}
+
+function obtenerFiltrosDetalleActual(): {
+  idTransaccion: string;
+  idSession: string;
+} {
+  return {
+    idTransaccion: inputDetalleIdTransaccion.value.trim(),
+    idSession: inputDetalleIdSession.value.trim(),
+  };
+}
+
+function construirQueryDetalleOpensearch(
+  idTransaccion: string,
+  idSession: string
+): string | null {
+  const must: string[] = [];
+
+  if (idTransaccion) {
+    must.push(`{
+        "term":{
+            "idTransaccion.keyword":"${idTransaccion}"
+        }
+      }`);
+  }
+
+  if (idSession) {
+    must.push(`{
+        "term":{
+            "idSession.keyword":"${idSession}"
+        }
+      }`);
+  }
+
+  if (must.length === 0) {
+    return null;
+  }
+
+  const mustComoTexto = must.join(",\n        ");
+
+  return `GET log-matriculaautoescalable-ms-academica-*/_search
+{
+  "size": 1000,
+  "_source": [
+    "@timestamp",
+    "idTransaccion",
+    "idSession",
+    "status",
+    "action",
+    "message",
+    "data.message",
+    "code_student",
+    "code_emplid",
+    "urlService",
+    "log"
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        ${mustComoTexto}
+      ]
+    }
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ]
+}`;
+}
+
+function crearFilaVacia(
+  mensaje: string,
+  columnas: number
+): HTMLTableRowElement {
+  const fila = document.createElement("tr");
+  fila.className = "tabla-detalle__vacio";
+  const celda = document.createElement("td");
+  celda.colSpan = columnas;
+  celda.textContent = mensaje;
+  fila.appendChild(celda);
+  return fila;
+}
+
+function crearFilaDetalle(valores: string[]): HTMLTableRowElement {
+  const fila = document.createElement("tr");
+  valores.forEach((valor) => {
+    const celda = document.createElement("td");
+    celda.textContent = valor || "—";
+    fila.appendChild(celda);
+  });
+  return fila;
+}
+
+function formatearFechaDetallada(fecha: Date): string {
+  if (!(fecha instanceof Date) || Number.isNaN(fecha.getTime())) {
+    return "";
+  }
+  return fecha.toISOString();
+}
+
+function formatearFechaCorta(fecha: Date): string {
+  if (!(fecha instanceof Date) || Number.isNaN(fecha.getTime())) {
+    return "";
+  }
+  return fecha.toLocaleString("es-PE", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  });
+}
+
+function esEstadoError(status: string): boolean {
+  return status.toLowerCase() === "error";
+}
+
+function formatearJsonLegible(valor: unknown): string {
+  if (valor === null || valor === undefined) {
+    return "";
+  }
+  try {
+    return JSON.stringify(valor, null, 2);
+  } catch (error) {
+    console.warn("No se pudo formatear JSON:", error);
+    return String(valor);
+  }
+}
+
+function sanitizarTripleComillas(texto: string): string {
+  const patron = /""\"([\s\S]*?)""\"/g; // """ contenido """
+  return texto.replace(patron, (_coincidencia, grupo) => {
+    try {
+      return JSON.stringify(grupo);
+    } catch (_error) {
+      return `"${grupo.replace(/"/g, '\\"')}"`;
+    }
+  });
+}
+
+function parsearContenidoJsonLaxo(contenido: string): unknown {
+  const textoCrudo = contenido.trim();
+  const texto = sanitizarTripleComillas(textoCrudo);
+  try {
+    return JSON.parse(texto);
+  } catch (errorJson) {
+    console.warn("JSON.parse estándar falló, se intentará un parse laxo:", errorJson);
+  }
+
+  // Intento NDJSON (líneas con objetos separados).
+  const lineas = texto.split(/\r?\n/).map((linea) => linea.trim()).filter(Boolean);
+  if (lineas.length > 1 && lineas.every((linea) => linea.startsWith("{") || linea.startsWith("["))) {
+    try {
+      const objetos = lineas.map((linea) => JSON.parse(linea));
+      return objetos;
+    } catch (errorNdjson) {
+      console.warn("No se pudo parsear como NDJSON:", errorNdjson);
+    }
+  }
+
+  // Intento como objeto JS (permite comillas simples o trailing commas).
+  try {
+    // eslint-disable-next-line no-new-func
+    const evaluado = Function(`"use strict"; return (${texto});`)();
+    return evaluado;
+  } catch (errorEval) {
+    console.error("No se pudo interpretar el contenido como JSON:", errorEval);
+    throw new Error("El contenido no es un JSON válido.");
+  }
+}
+
+function normalizarTextoPlano(valor: unknown): string {
+  if (valor === null || valor === undefined) {
+    return "";
+  }
+  return String(valor);
+}
+
+function normalizarCampoData(valor: unknown): string {
+  if (valor === null || valor === undefined) {
+    return "";
+  }
+  if (typeof valor === "string") {
+    return valor;
+  }
+  try {
+    return JSON.stringify(valor);
+  } catch (error) {
+    console.warn("No se pudo serializar campo data:", error);
+    return String(valor);
+  }
+}
+
+function normalizarAccionDesdeBD(
+  fila: RegistroDetalleAccionBD
+): RegistroDetalleAccionNormalizado {
+  const fecha = new Date(fila.fecha);
+  return {
+    accion: normalizarTextoPlano(fila.accion),
+    codAlumno: normalizarTextoPlano(fila.cod_alumno),
+    codUser: normalizarTextoPlano(fila.cod_user),
+    fecha,
+    message: normalizarTextoPlano(fila.message),
+    status: normalizarTextoPlano(fila.status),
+    tiempo: fila.tiempo ?? "",
+    periodo: normalizarTextoPlano(fila.periodo),
+    data: normalizarCampoData(fila.data),
+  };
+}
+
+function normalizarEventoDesdeBD(
+  fila: RegistroDetalleEventoBD
+): RegistroDetalleEventoNormalizado {
+  const fecha = new Date(fila.fecha);
+  return {
+    urlService: normalizarTextoPlano(fila.url_service),
+    status: normalizarTextoPlano(fila.status),
+    codeStudent: normalizarTextoPlano(fila.code_student),
+    codeEmplid: normalizarTextoPlano(fila.code_emplid),
+    action: normalizarTextoPlano(fila.action),
+    message: normalizarTextoPlano(fila.message),
+    event: normalizarTextoPlano(fila.event),
+    duration: fila.duration ?? "",
+    data: normalizarCampoData(fila.data),
+    code: normalizarTextoPlano(fila.code),
+    fecha,
+  };
+}
+
+function renderizarDetalleOpensearch(
+  registros: LogDetalleOpensearch[]
+): void {
+  cuerpoDetalleOpensearch.innerHTML = "";
+  badgeDetalleOpensearch.textContent = registros.length.toString();
+  avisoDetalleOpensearch.hidden = true;
+  avisoDetalleOpensearch.textContent = "";
+
+  if (registros.length === 0) {
+    cuerpoDetalleOpensearch.appendChild(
+      crearFilaVacia("Aún no hay datos pegados desde Opensearch.", 6)
+    );
+    return;
+  }
+
+  registros.forEach((registro) => {
+    const fila = crearFilaDetalle([
+      registro.urlService,
+      formatearFechaCorta(registro.fechaEvento),
+      registro.codeStudent,
+      registro.message,
+      registro.status,
+      "",
+    ]);
+    if (esEstadoError(registro.status)) {
+      fila.classList.add("error");
+    }
+
+    const celdas = fila.querySelectorAll("td");
+    const celdaStatus = celdas[4];
+    const celdaAccion = celdas[5];
+    const badge = document.createElement("span");
+    badge.className = `badge-estado ${
+      esEstadoError(registro.status) ? "badge-estado--error" : "badge-estado--ok"
+    }`;
+    badge.textContent = registro.status || "—";
+    celdaStatus.textContent = "";
+    celdaStatus.appendChild(badge);
+
+    const botonVer = document.createElement("button");
+    botonVer.className = "boton-icono-ghost";
+    botonVer.type = "button";
+    botonVer.title = "Ver detalle completo";
+    botonVer.setAttribute("aria-label", "Ver detalle completo");
+    botonVer.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-4.5 0-8.3 2.9-10 7 1.7 4.1 5.5 7 10 7s8.3-2.9 10-7c-1.7-4.1-5.5-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path></svg>`;
+    botonVer.addEventListener("click", () => {
+      construirModalDetallado(
+        "Detalle de Opensearch",
+        [
+          { clave: "urlService", valor: registro.urlService },
+          { clave: "fecha", valor: formatearFechaDetallada(registro.fechaEvento) },
+          { clave: "idTransaccion", valor: registro.idTransaccion },
+          { clave: "idSession", valor: registro.idSession },
+          { clave: "code_student", valor: registro.codeStudent },
+          { clave: "code_emplid", valor: registro.codeEmplid },
+          { clave: "action", valor: registro.action },
+          { clave: "message", valor: registro.message },
+          { clave: "status", valor: registro.status },
+        ],
+        {
+          esError: esEstadoError(registro.status),
+          pill: esEstadoError(registro.status) ? "Error" : "OK",
+          jsonExtra: { clave: "data", valor: formatearJsonLegible(registro.data) },
+        }
+      );
+    });
+    celdaAccion.textContent = "";
+    celdaAccion.appendChild(botonVer);
+
+    cuerpoDetalleOpensearch.appendChild(fila);
+  });
+}
+
+function construirModalDetallado(
+  titulo: string,
+  pares: Array<{ clave: string; valor: string }>,
+  opciones?: { esError?: boolean; pill?: string; jsonExtra?: { clave: string; valor: string } }
+): void {
+  modalDetalleCuerpo.innerHTML = "";
+  const esError = Boolean(opciones?.esError);
+  modalDetalleOpensearch.classList.toggle("modal--error", esError);
+
+  const headerTitulo = modalDetalleOpensearch.querySelector(
+    ".modal__header-info .modal__titulo"
+  ) as HTMLHeadingElement | null;
+  const pill = modalDetalleOpensearch.querySelector(
+    ".modal__pill"
+  ) as HTMLSpanElement | null;
+  const iconoEstado = modalDetalleOpensearch.querySelector(
+    ".modal__estado-icono"
+  ) as HTMLSpanElement | null;
+  const esOk = opciones?.pill?.toLowerCase() === "ok";
+
+  if (headerTitulo) {
+    headerTitulo.textContent = titulo;
+  }
+
+  if (pill) {
+    pill.textContent = opciones?.pill ?? "";
+    pill.hidden = !opciones?.pill;
+  }
+
+  if (iconoEstado) {
+    iconoEstado.textContent = esOk ? "OK" : "!";
+  }
+
+  pares.forEach((item) => {
+    const fila = document.createElement("div");
+    fila.className = "modal__fila";
+    const clave = document.createElement("div");
+    clave.className = "modal__clave";
+    clave.textContent = item.clave;
+    const valor = document.createElement("div");
+    valor.className = "modal__valor";
+    valor.textContent = item.valor || "—";
+    fila.appendChild(clave);
+    fila.appendChild(valor);
+    modalDetalleCuerpo.appendChild(fila);
+  });
+
+  if (opciones?.jsonExtra) {
+    const filaJson = document.createElement("div");
+    filaJson.className = "modal__fila";
+    const claveJson = document.createElement("div");
+    claveJson.className = "modal__clave";
+    claveJson.textContent = opciones.jsonExtra.clave;
+    const valorJson = document.createElement("pre");
+    valorJson.className = "modal__valor modal__valor--json";
+    valorJson.textContent = opciones.jsonExtra.valor || "";
+    filaJson.appendChild(claveJson);
+    filaJson.appendChild(valorJson);
+    modalDetalleCuerpo.appendChild(filaJson);
+  }
+
+  modalDetalleOpensearch.hidden = false;
+}
+
+function cerrarModalDetallado(): void {
+  modalDetalleOpensearch.hidden = true;
+}
+
+function renderizarDetalleAcciones(
+  registros: RegistroDetalleAccionNormalizado[]
+): void {
+  cuerpoDetalleAcciones.innerHTML = "";
+  badgeDetalleAcciones.textContent = registros.length.toString();
+
+  if (registros.length === 0) {
+    cuerpoDetalleAcciones.appendChild(
+      crearFilaVacia("Sin resultados en mel2.logacciones.", 9)
+    );
+    return;
+  }
+
+  registros.forEach((registro) => {
+    const fila = crearFilaDetalle([
+      registro.accion,
+      registro.codAlumno,
+      registro.codUser,
+      formatearFechaDetallada(registro.fecha),
+      registro.message,
+      registro.status,
+      normalizarTextoPlano(registro.tiempo),
+      registro.periodo,
+      registro.data,
+    ]);
+    cuerpoDetalleAcciones.appendChild(fila);
+  });
+}
+
+function renderizarDetalleEventos(
+  registros: RegistroDetalleEventoNormalizado[]
+): void {
+  cuerpoDetalleEventos.innerHTML = "";
+  badgeDetalleEventos.textContent = registros.length.toString();
+
+  if (registros.length === 0) {
+    cuerpoDetalleEventos.appendChild(
+      crearFilaVacia("Sin resultados en mel2.logeventos.", 11)
+    );
+    return;
+  }
+
+  registros.forEach((registro) => {
+    const fila = crearFilaDetalle([
+      registro.urlService,
+      registro.status,
+      registro.codeStudent,
+      registro.codeEmplid,
+      registro.action,
+      registro.message,
+      registro.event,
+      normalizarTextoPlano(registro.duration),
+      registro.data,
+      registro.code,
+      formatearFechaDetallada(registro.fecha),
+    ]);
+    cuerpoDetalleEventos.appendChild(fila);
+  });
+}
+
+function actualizarAvisoOpensearchConFiltros(filtros: {
+  idTransaccion: string;
+  idSession: string;
+}): void {
+  if (estadoDetalleLogs.opensearch.length === 0) {
+    avisoDetalleOpensearch.hidden = true;
+    avisoDetalleOpensearch.textContent = "";
+    return;
+  }
+
+  const coincide = estadoDetalleLogs.opensearch.every((registro) => {
+    const coincideTx =
+      !filtros.idTransaccion ||
+      registro.idTransaccion === filtros.idTransaccion;
+    const coincideSession =
+      !filtros.idSession || registro.idSession === filtros.idSession;
+    return coincideTx && coincideSession;
+  });
+
+  if (!coincide) {
+    avisoDetalleOpensearch.hidden = false;
+    avisoDetalleOpensearch.textContent =
+      "⚠️ La data pegada no coincide con el idTransaccion/idSession actuales. Ajusta los filtros o pega el JSON correcto.";
+  } else {
+    avisoDetalleOpensearch.hidden = true;
+    avisoDetalleOpensearch.textContent = "";
+  }
+}
+
+async function copiarQueryDetalleSolo(): Promise<string | null> {
+  const filtros = obtenerFiltrosDetalleActual();
+  const query = construirQueryDetalleOpensearch(
+    filtros.idTransaccion,
+    filtros.idSession
+  );
+
+  if (!query) {
+    mostrarEstadoDetalleLogs(
+      "Ingresa idTransaccion o idSession para construir la query.",
+      "alerta"
+    );
+    return null;
+  }
+
+  try {
+    botonCopiarQueryDetalle.disabled = true;
+    await copiarTextoAlPortapapeles(query);
+    mostrarEstadoDetalleLogs("Query copiada al portapapeles.", "exito");
+    return query;
+  } catch (error) {
+    console.error("No se pudo copiar la query de detalle:", error);
+    mostrarEstadoDetalleLogs(
+      "No se pudo copiar la query. Copia manualmente el texto generado.",
+      "error"
+    );
+    return null;
+  } finally {
+    botonCopiarQueryDetalle.disabled = false;
+  }
+}
+
+function ordenarPorFechaAsc<T>(
+  registros: T[],
+  selector: (item: T) => Date
+): T[] {
+  return [...registros].sort((a, b) => {
+    const fechaA = selector(a).getTime();
+    const fechaB = selector(b).getTime();
+    return fechaA - fechaB;
+  });
+}
+
+async function manejarGenerarDetalle(): Promise<void> {
+  const filtros = obtenerFiltrosDetalleActual();
+  const query = construirQueryDetalleOpensearch(
+    filtros.idTransaccion,
+    filtros.idSession
+  );
+
+  if (!query) {
+    mostrarEstadoDetalleLogs(
+      "Indica al menos idTransaccion o idSession para generar los datos.",
+      "alerta"
+    );
+    return;
+  }
+
+  botonGenerarDetalle.disabled = true;
+  botonGenerarDetalle.textContent = "Generando...";
+  botonCopiarQueryDetalle.disabled = true;
+  mostrarEstadoDetalleLogs(
+    "Copiando query y consultando PostgreSQL...",
+    "info"
+  );
+
+  try {
+    await copiarTextoAlPortapapeles(query);
+    estadoDetalleLogs.filtros = filtros;
+    actualizarAvisoOpensearchConFiltros(filtros);
+
+    const respuesta = await window.electronAPI.consultarDetalleDeLogs(filtros);
+    const accionesNormalizadas = respuesta.acciones.map(normalizarAccionDesdeBD);
+    const eventosNormalizados = respuesta.eventos.map(normalizarEventoDesdeBD);
+
+    estadoDetalleLogs.logacciones = ordenarPorFechaAsc(
+      accionesNormalizadas,
+      (registro) => registro.fecha
+    );
+    estadoDetalleLogs.logeventos = ordenarPorFechaAsc(
+      eventosNormalizados,
+      (registro) => registro.fecha
+    );
+
+    renderizarDetalleAcciones(estadoDetalleLogs.logacciones);
+    renderizarDetalleEventos(estadoDetalleLogs.logeventos);
+    mostrarEstadoDetalleLogs(
+      "Query copiada. Ejecuta la búsqueda en Opensearch y pega el JSON. Datos de PostgreSQL listos.",
+      "exito"
+    );
+  } catch (error) {
+    console.error("Error al generar el detalle de logs:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "No se pudo generar el detalle.";
+    mostrarEstadoDetalleLogs(`Error: ${mensaje}`, "error");
+  } finally {
+    botonGenerarDetalle.disabled = false;
+    botonGenerarDetalle.textContent = "Generar data";
+    botonCopiarQueryDetalle.disabled = false;
+  }
+}
+
+function normalizarHitDetalleOpensearch(
+  hit: unknown
+): LogDetalleOpensearch | null {
+  const conFuente =
+    (hit as { _source?: unknown })._source ??
+    (hit as { source?: unknown }).source ??
+    hit;
+
+  if (!conFuente || typeof conFuente !== "object") {
+    return null;
+  }
+
+  const fuente = conFuente as Record<string, unknown>;
+  const fechaIso =
+    (fuente["@timestamp"] as string | undefined) ||
+    (fuente.timestamp as string | undefined);
+
+  if (!fechaIso) {
+    return null;
+  }
+
+  const fechaEvento = new Date(fechaIso);
+  if (Number.isNaN(fechaEvento.getTime())) {
+    return null;
+  }
+
+  const data = (fuente.data as { message?: unknown }) || {};
+  const mensaje = data.message ?? fuente.message;
+
+  return {
+    fechaEvento,
+    urlService: normalizarTextoPlano(fuente.urlService),
+    codeStudent: normalizarTextoPlano(
+      fuente.code_student ?? fuente.codeStudent
+    ),
+    codeEmplid: normalizarTextoPlano(fuente.code_emplid ?? fuente.codeEmplid),
+    action: normalizarTextoPlano(fuente.action),
+    message: normalizarTextoPlano(mensaje),
+    status: normalizarTextoPlano(fuente.status),
+    idTransaccion: normalizarTextoPlano(fuente.idTransaccion),
+    idSession: normalizarTextoPlano(fuente.idSession),
+    data: fuente.data,
+  };
+}
+
+function parsearRespuestaDetalleOpensearch(
+  contenido: string
+): LogDetalleOpensearch[] {
+  const json = parsearContenidoJsonLaxo(contenido);
+
+  const hits = extraerHitsDeRespuesta(json);
+  if (!hits || hits.length === 0) {
+    return [];
+  }
+
+  return hits
+    .map(normalizarHitDetalleOpensearch)
+    .filter(
+      (registro): registro is LogDetalleOpensearch => registro !== null
+    );
+}
+
+async function cargarDetalleDesdeJson(
+  contenido: string,
+  origen: "portapapeles" | "archivo"
+): Promise<void> {
+  mostrarEstadoDetalleLogs("Procesando datos de Opensearch...", "info");
+  try {
+    const registros = parsearRespuestaDetalleOpensearch(contenido);
+    estadoDetalleLogs.opensearch = ordenarPorFechaAsc(
+      registros,
+      (registro) => registro.fechaEvento
+    );
+    renderizarDetalleOpensearch(estadoDetalleLogs.opensearch);
+
+    if (registros.length === 0) {
+      mostrarEstadoDetalleLogs(
+        "El JSON no tiene hits con datos para mostrar.",
+        "alerta"
+      );
+      return;
+    }
+
+    const filtros = obtenerFiltrosDetalleActual();
+    actualizarAvisoOpensearchConFiltros(filtros);
+
+    mostrarEstadoDetalleLogs(
+      `Datos cargados desde ${
+        origen === "archivo" ? "archivo" : "portapapeles"
+      }.`,
+      "exito"
+    );
+  } catch (error) {
+    console.error("No se pudo procesar el JSON del detalle:", error);
+    const mensaje =
+      error instanceof Error
+        ? error.message
+        : "Error desconocido al leer el JSON.";
+    mostrarEstadoDetalleLogs(mensaje, "error");
+  }
+}
+
+async function manejarPegadoDetalleOpensearch(): Promise<void> {
+  if (!navigator.clipboard?.readText) {
+    mostrarEstadoDetalleLogs(
+      "Tu entorno no permite leer texto del portapapeles.",
+      "alerta"
+    );
+    return;
+  }
+
+  try {
+    botonDetallePegarJson.disabled = true;
+    const contenido = await navigator.clipboard.readText();
+    if (!contenido) {
+      mostrarEstadoDetalleLogs(
+        "El portapapeles está vacío o no contiene texto.",
+        "alerta"
+      );
+      return;
+    }
+
+    await cargarDetalleDesdeJson(contenido, "portapapeles");
+  } finally {
+    botonDetallePegarJson.disabled = false;
+  }
+}
+
+async function manejarCargaArchivoDetalleOpensearch(): Promise<void> {
+  const archivo = inputArchivoDetalleOpensearch.files?.[0];
+  if (!archivo) {
+    return;
+  }
+
+  try {
+    botonDetalleSubirJson.disabled = true;
+    mostrarEstadoDetalleLogs(`Leyendo ${archivo.name}...`, "info");
+    const contenido = await leerArchivoComoTexto(archivo);
+    await cargarDetalleDesdeJson(contenido, "archivo");
+  } finally {
+    botonDetalleSubirJson.disabled = false;
+    inputArchivoDetalleOpensearch.value = "";
+  }
 }
 
 /**
@@ -2110,6 +2983,44 @@ botonCopiarGraficoErrores.addEventListener("click", () => {
   void copiarGraficoErroresComoImagen();
 });
 
+botonCopiarQueryDetalle.addEventListener("click", () => {
+  void copiarQueryDetalleSolo();
+});
+
+botonGenerarDetalle.addEventListener("click", () => {
+  void manejarGenerarDetalle();
+});
+
+botonDetallePegarJson.addEventListener("click", () => {
+  void manejarPegadoDetalleOpensearch();
+});
+
+botonDetalleSubirJson.addEventListener("click", () => {
+  inputArchivoDetalleOpensearch.click();
+});
+
+inputArchivoDetalleOpensearch.addEventListener("change", () => {
+  void manejarCargaArchivoDetalleOpensearch();
+});
+
+inputDetalleIdTransaccion.addEventListener("input", () => {
+  actualizarAvisoOpensearchConFiltros(obtenerFiltrosDetalleActual());
+});
+
+inputDetalleIdSession.addEventListener("input", () => {
+  actualizarAvisoOpensearchConFiltros(obtenerFiltrosDetalleActual());
+});
+
+const overlayModalDetalle = modalDetalleOpensearch.querySelector(
+  ".modal__overlay"
+) as HTMLDivElement | null;
+botonModalCerrar?.addEventListener("click", () => {
+  cerrarModalDetallado();
+});
+overlayModalDetalle?.addEventListener("click", () => {
+  cerrarModalDetallado();
+});
+
 itemsMenuSeccion.forEach((item) => {
   item.addEventListener("click", () => {
     const destino = item.dataset.section as SeccionActiva | undefined;
@@ -2146,6 +3057,10 @@ botonRecargarConfiguracion.addEventListener("click", () => {
 gruposMenu.forEach((grupo) => {
   grupo.classList.remove("abierto");
 });
+
+renderizarDetalleOpensearch([]);
+renderizarDetalleAcciones([]);
+renderizarDetalleEventos([]);
 
 cambiarSeccion(seccionActual);
 void cargarConfiguracionDeEnv();

@@ -80,7 +80,7 @@
                 </li>
               </ul>
             </li>
-            <li class="menu-principal__item" title="Detalle de logs">
+            <li class="menu-principal__item" data-section="detalle-logs" title="Detalle de logs">
               <span aria-hidden="true" class="menu-principal__icono">
                 <svg viewBox="0 0 24 24">
                   <path
@@ -286,6 +286,136 @@
             </div>
           </div>
         </section>
+        <section id="seccion-detalle-logs" class="panel" hidden>
+          <header>
+            <h2>Detalle de logs</h2>
+            <p class="subtitulo">
+              Genera la query de Opensearch para pegar en Kibana, luego pega el resultado y consulta PostgreSQL para los mismos identificadores.
+            </p>
+          </header>
+          <div class="filtros">
+            <div class="bloque-filtros">
+              <div class="campo-formulario">
+                <label for="detalle-id-transaccion">idTransaccion</label>
+                <input id="detalle-id-transaccion" type="text" autocomplete="off" placeholder="fe18f5d3-..." />
+              </div>
+              <div class="campo-formulario">
+                <label for="detalle-id-session">idSession</label>
+                <input id="detalle-id-session" type="text" autocomplete="off" placeholder="eaf580a3-..." />
+              </div>
+              <div class="campo-formulario botonera">
+                <button id="boton-generar-detalle" class="boton primario" type="button">Generar data</button>
+              </div>
+              <div class="campo-formulario botonera">
+                <button id="boton-copiar-query-detalle" class="boton secundario" type="button">
+                  Copiar solo query Opensearch
+                </button>
+              </div>
+            </div>
+            <div class="bloque-filtros bloque-filtros--carga">
+              <div class="campo-formulario">
+                <label for="archivo-detalle-opensearch">Resultado de Opensearch</label>
+                <div class="grupo-botones">
+                  <button id="boton-detalle-pegar-json" class="boton secundario" type="button">
+                    Pegar JSON desde portapapeles
+                  </button>
+                  <button id="boton-detalle-subir-json" class="boton secundario" type="button">
+                    Cargar archivo JSON
+                  </button>
+                  <input type="file" id="archivo-detalle-opensearch" accept=".json,application/json" hidden />
+                </div>
+              </div>
+            </div>
+            <div id="estado-detalle-logs" class="estado"></div>
+          </div>
+          <div class="tarjetas-detalle tarjetas-detalle--opensearch">
+            <div class="tarjeta-detalle">
+              <header>
+                <div>
+                  <p class="tarjeta-detalle__titulo">Opensearch hits</p>
+                  <p class="tarjeta-detalle__subtitulo">
+                    Pega el JSON de la query generada para ver los campos clave.
+                  </p>
+                </div>
+                <span class="tarjeta-detalle__badge" id="detalle-opensearch-total">0</span>
+              </header>
+              <p class="detalle-opensearch__aviso" id="detalle-opensearch-aviso" hidden></p>
+              <div class="tabla-detalle">
+                <table class="tabla-detalle__tabla">
+                  <thead>
+                    <tr>
+                      <th>urlService</th>
+                      <th>fecha</th>
+                      <th>code_student</th>
+                      <th>message</th>
+                      <th>status</th>
+                      <th aria-label="Acciones"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalle-opensearch-cuerpo"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="tarjetas-detalle tarjetas-detalle--bases">
+            <div class="tarjeta-detalle">
+              <header>
+                <div>
+                  <p class="tarjeta-detalle__titulo">mel2.logacciones</p>
+                  <p class="tarjeta-detalle__subtitulo">Consulta secuencial filtrada por idTransaccion y/o idSession.</p>
+                </div>
+                <span class="tarjeta-detalle__badge" id="detalle-acciones-total">0</span>
+              </header>
+              <div class="tabla-detalle tabla-detalle--compacta">
+                <table class="tabla-detalle__tabla">
+                  <thead>
+                    <tr>
+                      <th>accion</th>
+                      <th>cod_alumno</th>
+                      <th>cod_user</th>
+                      <th>fecha</th>
+                      <th>message</th>
+                      <th>status</th>
+                      <th>tiempo</th>
+                      <th>periodo</th>
+                      <th>data</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalle-acciones-cuerpo"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="tarjeta-detalle">
+              <header>
+                <div>
+                  <p class="tarjeta-detalle__titulo">mel2.logeventos</p>
+                  <p class="tarjeta-detalle__subtitulo">Consulta secuencial filtrada por idTransaccion y/o idSession.</p>
+                </div>
+                <span class="tarjeta-detalle__badge" id="detalle-eventos-total">0</span>
+              </header>
+              <div class="tabla-detalle tabla-detalle--compacta">
+                <table class="tabla-detalle__tabla">
+                  <thead>
+                    <tr>
+                      <th>url_service</th>
+                      <th>status</th>
+                      <th>code_student</th>
+                      <th>code_emplid</th>
+                      <th>action</th>
+                      <th>message</th>
+                      <th>event</th>
+                      <th>duration</th>
+                      <th>data</th>
+                      <th>code</th>
+                      <th>fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalle-eventos-cuerpo"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
         <section id="seccion-configuracion" class="panel" hidden>
           <header>
             <h2>Configuración</h2>
@@ -327,6 +457,20 @@
           <div id="estado-configuracion" class="estado"></div>
         </section>
       </main>
+    </div>
+    <div id="modal-detalle-opensearch" class="modal" hidden>
+      <div class="modal__overlay"></div>
+      <div class="modal__contenido">
+        <header class="modal__header">
+          <div class="modal__header-info">
+            <span class="modal__estado-icono">OK</span>
+            <h3 class="modal__titulo">Detalle completo</h3>
+            <span class="modal__pill" hidden></span>
+          </div>
+          <button id="modal-detalle-cerrar" class="modal__cerrar" aria-label="Cerrar detalle">&times;</button>
+        </header>
+        <div id="modal-detalle-cuerpo" class="modal__cuerpo"></div>
+      </div>
     </div>
     <script src="renderer.js"></script>
   </body>

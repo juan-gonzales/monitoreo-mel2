@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { ParametrosDeConsulta, RegistroCrudo } from './postgresClient';
+import {
+  ParametrosDeConsulta,
+  RegistroCrudo,
+  ParametrosDetalleLogs,
+  RegistroDetalleAccion,
+  RegistroDetalleEvento
+} from './postgresClient';
 
 type ConfiguracionDeEnv = {
   host: string;
@@ -14,6 +20,11 @@ type RespuestaConfiguracion = {
   existeArchivoEnv: boolean;
 };
 
+type RespuestaDetalle = {
+  acciones: RegistroDetalleAccion[];
+  eventos: RegistroDetalleEvento[];
+};
+
 /**
  * Expone una API mínima al renderer para ejecutar consultas bajo demanda.
  * Mantiene el aislamiento de contexto y evita que el frontend acceda directamente a Node o a las credenciales.
@@ -24,5 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('execute-log-query', fechas),
   obtenerConfiguracionDeEnv: (): Promise<RespuestaConfiguracion> => ipcRenderer.invoke('get-env-config'),
   guardarConfiguracionDeEnv: (configuracion: ConfiguracionDeEnv): Promise<RespuestaConfiguracion> =>
-    ipcRenderer.invoke('save-env-config', configuracion)
+    ipcRenderer.invoke('save-env-config', configuracion),
+  consultarDetalleDeLogs: (filtros: ParametrosDetalleLogs): Promise<RespuestaDetalle> =>
+    ipcRenderer.invoke('execute-log-detail', filtros)
 });

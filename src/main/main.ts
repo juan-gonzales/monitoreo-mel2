@@ -6,7 +6,10 @@ import {
   construirPoolDeBaseDeDatos,
   consultarLogsPorRangoDeFechas,
   ConfiguracionBaseDeDatos,
-  ParametrosDeConsulta
+  ParametrosDeConsulta,
+  ParametrosDetalleLogs,
+  consultarLogAccionesPorIdentificadores,
+  consultarLogEventosPorIdentificadores
 } from './postgresClient';
 
 // Carga .env desde la raíz del proyecto en desarrollo y junto al ejecutable en producción portable.
@@ -59,6 +62,15 @@ function actualizarVariablesDeProceso(configuracion: ConfiguracionBaseDeDatos): 
   process.env.POSTGRES_USER = configuracion.user;
   process.env.POSTGRES_PASSWORD = configuracion.password;
   process.env.POSTGRES_DATABASE = configuracion.database;
+}
+
+function normalizarParametrosDetalle(
+  filtros: ParametrosDetalleLogs | undefined
+): ParametrosDetalleLogs {
+  return {
+    idTransaccion: filtros?.idTransaccion?.toString().trim() ?? '',
+    idSession: filtros?.idSession?.toString().trim() ?? ''
+  };
 }
 
 async function cargarConfiguracionInicial(): Promise<void> {
@@ -136,6 +148,24 @@ function registrarManejadoresDeIPC(): void {
 
       return { registrosCrudos };
     } finally {
+      await pool.end();
+    }
+  });
+
+  ipcMain.handle('execute-log-detail', async (_event, filtros: ParametrosDetalleLogs) => {
+    const filtrosNormalizados = normalizarParametrosDetalle(filtros);
+    if (!filtrosNormalizados.idTransaccion && !filtrosNormalizados.idSession) {
+      throw new Error('Indica idTransaccion o idSession para consultar el detalle.');
+    }
+
+    const pool = construirPoolDeBaseDeDatos(configuracionEnMemoria);
+    const cliente = await pool.connect();
+    try {
+      const acciones = await consultarLogAccionesPorIdentificadores(cliente, filtrosNormalizados);
+      const eventos = await consultarLogEventosPorIdentificadores(cliente, filtrosNormalizados);
+      return { acciones, eventos };
+    } finally {
+      cliente.release();
       await pool.end();
     }
   });
