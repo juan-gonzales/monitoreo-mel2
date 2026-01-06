@@ -239,6 +239,9 @@ const botonDescargarAlumnos = document.getElementById(
 const botonDescargarFiltrado = document.getElementById(
   "boton-descargar-filtrado"
 ) as HTMLButtonElement;
+const botonVerTablaFiltrada = document.getElementById(
+  "boton-ver-tabla-filtrada"
+) as HTMLButtonElement;
 const botonCopiarGraficoErrores = document.getElementById(
   "boton-copiar-grafico-errores"
 ) as HTMLButtonElement;
@@ -318,6 +321,30 @@ const modalDetalleCuerpo = document.getElementById(
 const botonModalCerrar = document.getElementById(
   "modal-detalle-cerrar"
 ) as HTMLButtonElement;
+const modalTablaFiltrada = document.getElementById(
+  "modal-tabla-filtrada"
+) as HTMLDivElement;
+const modalTablaCerrar = document.getElementById(
+  "modal-tabla-cerrar"
+) as HTMLButtonElement;
+const tablaFiltradaCuerpo = document.getElementById(
+  "modal-tabla-cuerpo"
+) as HTMLTableSectionElement;
+const tablaFiltradaIndicador = document.getElementById(
+  "modal-tabla-indicador"
+) as HTMLSpanElement;
+const tablaFiltradaResumen = document.getElementById(
+  "modal-tabla-resumen"
+) as HTMLParagraphElement;
+const tablaFiltradaPrev = document.getElementById(
+  "modal-tabla-prev"
+) as HTMLButtonElement;
+const tablaFiltradaNext = document.getElementById(
+  "modal-tabla-next"
+) as HTMLButtonElement;
+const overlayModalTabla = modalTablaFiltrada.querySelector(
+  ".modal__overlay"
+) as HTMLDivElement | null;
 
 type Grafico = InstanceType<ChartConstructor>;
 
@@ -344,6 +371,8 @@ const COLOR_BORDE =
 const COLOR_AZUL = ESTILO.getPropertyValue("--color-azul").trim() || "#1f6feb";
 const COLOR_ACENTO =
   ESTILO.getPropertyValue("--color-acento").trim() || "#0d9488";
+const REGISTROS_TABLA_POR_PAGINA = 20;
+let paginaTablaFiltrada = 1;
 
 const CONFIG_BD_POR_DEFECTO: ConfiguracionBaseDeDatos = {
   host: "localhost",
@@ -1206,6 +1235,9 @@ function aplicarFiltrosDeOpensearch(): void {
     contenedorGraficoOpensearch.hidden = true;
     contenedorResumenOpensearch.hidden = true;
     graficoErroresPorHora?.destroy();
+    if (!modalTablaFiltrada.hidden) {
+      renderizarTablaFiltrada();
+    }
     mostrarEstadoDeOpensearch(
       "No hay datos para los filtros seleccionados.",
       "alerta"
@@ -1227,6 +1259,10 @@ function aplicarFiltrosDeOpensearch(): void {
   contenedorGraficoOpensearch.hidden = etiquetasHoras.length === 0;
   actualizarResumenDeAlumnos(estadoOpenSearch.registrosFiltrados);
   renderizarGraficoErroresPorHora(etiquetasHoras, seriesPorDia, maximoConteo);
+  if (!modalTablaFiltrada.hidden) {
+    paginaTablaFiltrada = 1;
+    renderizarTablaFiltrada();
+  }
   mostrarEstadoDeOpensearch("Datos listos para análisis.", "exito");
 }
 
@@ -1249,6 +1285,7 @@ async function cargarJsonDeOpensearch(
       estadoOpenSearch.registros = [];
       estadoOpenSearch.registrosFiltrados = [];
       contenedorFiltrosOpensearch.hidden = true;
+      cerrarModalTablaFiltrada();
       return;
     }
 
@@ -1418,6 +1455,125 @@ function descargarFiltradoCompleto(): void {
   mostrarEstadoDeOpensearch("Archivo de datos filtrados generado.", "exito");
 }
 
+function obtenerTotalPaginasTablaFiltrada(totalRegistros: number): number {
+  if (totalRegistros === 0) {
+    return 1;
+  }
+  return Math.ceil(totalRegistros / REGISTROS_TABLA_POR_PAGINA);
+}
+
+function construirFilaTablaFiltrada(
+  registro: LogOpensearchNormalizado
+): HTMLTableRowElement {
+  const fila = document.createElement("tr");
+  const valores = [
+    formatearFechaCorta(registro.fechaEvento),
+    registro.urlService,
+    registro.dataMessage || registro.message,
+    registro.codeStudent || registro.codeEmplid,
+    registro.status,
+    registro.idTransaccion,
+    registro.idSession,
+  ];
+
+  valores.forEach((valor) => {
+    const celda = document.createElement("td");
+    celda.textContent = valor || "—";
+    fila.appendChild(celda);
+  });
+
+  const celdaAccion = document.createElement("td");
+  const botonDetalle = document.createElement("button");
+  botonDetalle.type = "button";
+  botonDetalle.className = "boton-icono-ghost";
+  botonDetalle.title = "Ver detalle completo";
+  botonDetalle.setAttribute("aria-label", "Ver detalle completo");
+  botonDetalle.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-4.5 0-8.3 2.9-10 7 1.7 4.1 5.5 7 10 7s8.3-2.9 10-7c-1.7-4.1-5.5-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path></svg>';
+  botonDetalle.addEventListener("click", () => {
+    irADetalleDesdeTabla(registro);
+  });
+  celdaAccion.appendChild(botonDetalle);
+  fila.appendChild(celdaAccion);
+
+  const celdaStatus = fila.querySelectorAll("td")[4];
+  celdaStatus.textContent = "";
+  celdaStatus.appendChild(crearBadgeEstadoIcono(registro.status));
+
+  return fila;
+}
+
+function renderizarTablaFiltrada(): void {
+  const totalRegistros = estadoOpenSearch.registrosFiltrados.length;
+  const totalPaginas = obtenerTotalPaginasTablaFiltrada(totalRegistros);
+
+  paginaTablaFiltrada = Math.min(
+    Math.max(1, paginaTablaFiltrada),
+    totalPaginas
+  );
+
+  const inicio = (paginaTablaFiltrada - 1) * REGISTROS_TABLA_POR_PAGINA;
+  const fin = inicio + REGISTROS_TABLA_POR_PAGINA;
+  const registrosPagina = estadoOpenSearch.registrosFiltrados.slice(
+    inicio,
+    fin
+  );
+
+  tablaFiltradaCuerpo.innerHTML = "";
+  if (totalRegistros === 0) {
+    tablaFiltradaCuerpo.appendChild(
+      crearFilaVacia("No hay datos filtrados para mostrar.", 8)
+    );
+  } else {
+    registrosPagina.forEach((registro) => {
+      tablaFiltradaCuerpo.appendChild(construirFilaTablaFiltrada(registro));
+    });
+  }
+
+  tablaFiltradaResumen.textContent =
+    totalRegistros === 1
+      ? "1 registro filtrado"
+      : `${totalRegistros} registros filtrados`;
+  tablaFiltradaIndicador.textContent = `Página ${paginaTablaFiltrada} de ${totalPaginas}`;
+  tablaFiltradaPrev.disabled = paginaTablaFiltrada <= 1;
+  tablaFiltradaNext.disabled = paginaTablaFiltrada >= totalPaginas;
+}
+
+function cerrarModalTablaFiltrada(): void {
+  modalTablaFiltrada.hidden = true;
+}
+
+function abrirModalTablaFiltrada(): void {
+  if (estadoOpenSearch.registrosFiltrados.length === 0) {
+    mostrarEstadoDeOpensearch(
+      "No hay datos filtrados para mostrar en la tabla.",
+      "alerta"
+    );
+    return;
+  }
+
+  paginaTablaFiltrada = 1;
+  renderizarTablaFiltrada();
+  modalTablaFiltrada.hidden = false;
+}
+
+function irADetalleDesdeTabla(registro: LogOpensearchNormalizado): void {
+  if (!registro.idTransaccion && !registro.idSession) {
+    mostrarEstadoDeOpensearch(
+      "El registro no tiene idTransaccion ni idSession para navegar al detalle.",
+      "alerta"
+    );
+    return;
+  }
+
+  inputDetalleIdTransaccion.value = registro.idTransaccion;
+  inputDetalleIdSession.value = registro.idSession;
+  cambiarSeccion("detalle-logs");
+  cerrarModalTablaFiltrada();
+  actualizarAvisoOpensearchConFiltros(obtenerFiltrosDetalleActual());
+  void manejarGenerarDetalle();
+}
+
 async function copiarTextoAlPortapapeles(texto: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(texto);
@@ -1544,6 +1700,21 @@ function formatearFechaCorta(fecha: Date): string {
 
 function esEstadoError(status: string): boolean {
   return status.toLowerCase() === "error";
+}
+
+function crearBadgeEstadoIcono(status: string): HTMLSpanElement {
+  const esErrorEstado = esEstadoError(status);
+  const badge = document.createElement("span");
+  badge.className = `badge-estado ${
+    esErrorEstado ? "badge-estado--error" : "badge-estado--ok"
+  }`;
+  badge.setAttribute("role", "img");
+  badge.setAttribute("aria-label", esErrorEstado ? "Error" : "OK");
+  badge.title = esErrorEstado ? "Error" : "OK";
+  badge.innerHTML = esErrorEstado
+    ? '<svg class="badge-estado__icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM11 7h2v7h-2V7Zm0 9h2v2h-2v-2Z"/></svg>'
+    : '<svg class="badge-estado__icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 13.17-3.59-3.58 1.41-1.42L11 12.34l4.17-4.17 1.41 1.42L11 16.17Z"/></svg>';
+  return badge;
 }
 
 function formatearJsonLegible(valor: unknown): string {
@@ -1689,13 +1860,8 @@ function renderizarDetalleOpensearch(
     const celdas = fila.querySelectorAll("td");
     const celdaStatus = celdas[4];
     const celdaAccion = celdas[5];
-    const badge = document.createElement("span");
-    badge.className = `badge-estado ${
-      esEstadoError(registro.status) ? "badge-estado--error" : "badge-estado--ok"
-    }`;
-    badge.textContent = registro.status || "—";
     celdaStatus.textContent = "";
-    celdaStatus.appendChild(badge);
+    celdaStatus.appendChild(crearBadgeEstadoIcono(registro.status));
 
     const botonVer = document.createElement("button");
     botonVer.className = "boton-icono-ghost";
@@ -1828,13 +1994,8 @@ function renderizarDetalleAcciones(
     const celdas = fila.querySelectorAll("td");
     const celdaStatus = celdas[4];
     const celdaAccion = celdas[5];
-    const badge = document.createElement("span");
-    badge.className = `badge-estado ${
-      esEstadoError(registro.status) ? "badge-estado--error" : "badge-estado--ok"
-    }`;
-    badge.textContent = registro.status || "—";
     celdaStatus.textContent = "";
-    celdaStatus.appendChild(badge);
+    celdaStatus.appendChild(crearBadgeEstadoIcono(registro.status));
 
     const botonVer = document.createElement("button");
     botonVer.className = "boton-icono-ghost";
@@ -1898,13 +2059,8 @@ function renderizarDetalleEventos(
     const celdas = fila.querySelectorAll("td");
     const celdaStatus = celdas[4];
     const celdaAccion = celdas[5];
-    const badge = document.createElement("span");
-    badge.className = `badge-estado ${
-      esEstadoError(registro.status) ? "badge-estado--error" : "badge-estado--ok"
-    }`;
-    badge.textContent = registro.status || "—";
     celdaStatus.textContent = "";
-    celdaStatus.appendChild(badge);
+    celdaStatus.appendChild(crearBadgeEstadoIcono(registro.status));
 
     const botonVer = document.createElement("button");
     botonVer.className = "boton-icono-ghost";
@@ -3119,6 +3275,10 @@ botonDescargarFiltrado.addEventListener("click", () => {
   descargarFiltradoCompleto();
 });
 
+botonVerTablaFiltrada.addEventListener("click", () => {
+  abrirModalTablaFiltrada();
+});
+
 botonCopiarGraficoErrores.addEventListener("click", () => {
   void copiarGraficoErroresComoImagen();
 });
@@ -3149,6 +3309,27 @@ inputDetalleIdTransaccion.addEventListener("input", () => {
 
 inputDetalleIdSession.addEventListener("input", () => {
   actualizarAvisoOpensearchConFiltros(obtenerFiltrosDetalleActual());
+});
+
+tablaFiltradaPrev.addEventListener("click", () => {
+  paginaTablaFiltrada = Math.max(1, paginaTablaFiltrada - 1);
+  renderizarTablaFiltrada();
+});
+
+tablaFiltradaNext.addEventListener("click", () => {
+  const totalPaginas = obtenerTotalPaginasTablaFiltrada(
+    estadoOpenSearch.registrosFiltrados.length
+  );
+  paginaTablaFiltrada = Math.min(totalPaginas, paginaTablaFiltrada + 1);
+  renderizarTablaFiltrada();
+});
+
+modalTablaCerrar?.addEventListener("click", () => {
+  cerrarModalTablaFiltrada();
+});
+
+overlayModalTabla?.addEventListener("click", () => {
+  cerrarModalTablaFiltrada();
 });
 
 const overlayModalDetalle = modalDetalleOpensearch.querySelector(

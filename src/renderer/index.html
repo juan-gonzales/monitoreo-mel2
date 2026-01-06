@@ -256,9 +256,14 @@
                   Exporta todas las filas visibles (hits) con los campos principales.
                 </p>
               </div>
-              <button id="boton-descargar-filtrado" class="boton secundario" type="button">
-                Descargar Excel (data filtrada)
-              </button>
+              <div class="resumen-opensearch__acciones">
+                <button id="boton-descargar-filtrado" class="boton secundario" type="button">
+                  Descargar Excel (data filtrada)
+                </button>
+                <button id="boton-ver-tabla-filtrada" class="boton secundario" type="button">
+                  Ver tabla (data filtrada)
+                </button>
+              </div>
             </div>
           </div>
           <div class="graficos graficos--opensearch" id="contenedor-grafico-opensearch" hidden>
@@ -449,6 +454,44 @@
           <div id="estado-configuracion" class="estado"></div>
         </section>
       </main>
+    </div>
+    <div id="modal-tabla-filtrada" class="modal" hidden>
+      <div class="modal__overlay"></div>
+      <div class="modal__contenido modal__contenido--tabla">
+        <header class="modal__header">
+          <div class="modal__header-info">
+            <span class="modal__estado-icono">T</span>
+            <h3 class="modal__titulo">Data filtrada (tabla)</h3>
+            <span class="modal__pill">20 por página</span>
+          </div>
+          <button id="modal-tabla-cerrar" class="modal__cerrar" aria-label="Cerrar tabla">&times;</button>
+        </header>
+        <div class="modal-tabla__controles">
+          <p id="modal-tabla-resumen" class="modal-tabla__resumen"></p>
+          <div class="modal-tabla__paginacion">
+            <button id="modal-tabla-prev" class="boton secundario boton--sm" type="button">Anterior</button>
+            <span id="modal-tabla-indicador" class="modal-tabla__indicador"></span>
+            <button id="modal-tabla-next" class="boton secundario boton--sm" type="button">Siguiente</button>
+          </div>
+        </div>
+        <div class="tabla-detalle tabla-detalle--compacta modal-tabla__tabla-contenedor">
+          <table class="tabla-detalle__tabla modal-tabla__tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>urlService</th>
+                <th>data.message</th>
+                <th>code_student</th>
+                <th>status</th>
+                <th>idTransaccion</th>
+                <th>idSession</th>
+                <th aria-label="Ir al detalle">Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="modal-tabla-cuerpo"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
     <div id="modal-detalle-opensearch" class="modal" hidden>
       <div class="modal__overlay"></div>

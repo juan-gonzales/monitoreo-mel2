@@ -391,6 +391,11 @@ body {
   cursor: pointer;
 }
 
+.boton--sm {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
 .boton.primario {
   background-color: var(--color-azul);
   color: white;
@@ -572,6 +577,13 @@ body {
   background: #f9fafb;
 }
 
+.resumen-opensearch__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .resumen-opensearch__card .boton {
   white-space: nowrap;
 }
@@ -727,8 +739,9 @@ body {
 .badge-estado {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  justify-content: center;
+  gap: 0;
+  padding: 6px;
   border-radius: 999px;
   font-weight: 700;
   font-size: 12px;
@@ -745,6 +758,12 @@ body {
   background: #ecfdf3;
   color: #166534;
   border: 1px solid #bbf7d0;
+}
+
+.badge-estado__icono {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .boton-icono-ghost {
@@ -803,6 +822,10 @@ body {
   z-index: 1;
   border: 1px solid var(--borde-suave);
   background: linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.modal__contenido--tabla {
+  width: min(98vw, 1280px);
 }
 
 .modal__header {
@@ -920,9 +943,47 @@ body {
   background: #ef4444;
 }
 
+.modal-tabla__controles {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 10px 0;
+  flex-wrap: wrap;
+}
+
+.modal-tabla__resumen {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.modal-tabla__paginacion {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-tabla__indicador {
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-tabla__tabla-contenedor {
+  max-height: 540px;
+}
+
+.modal-tabla__tabla {
+  min-width: 960px;
+}
+
 @media (max-width: 980px) {
   .tarjetas-detalle--bases {
     grid-template-columns: 1fr;
+  }
+
+  .modal-tabla__controles {
+    align-items: flex-start;
   }
 }
 
