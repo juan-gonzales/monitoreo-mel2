@@ -1807,7 +1807,7 @@ function renderizarDetalleAcciones(
 
   if (registros.length === 0) {
     cuerpoDetalleAcciones.appendChild(
-      crearFilaVacia("Sin resultados en mel2.logacciones.", 9)
+      crearFilaVacia("Sin resultados en mel2.logacciones.", 6)
     );
     return;
   }
@@ -1816,14 +1816,55 @@ function renderizarDetalleAcciones(
     const fila = crearFilaDetalle([
       registro.accion,
       registro.codAlumno,
-      registro.codUser,
-      formatearFechaDetallada(registro.fecha),
+      formatearFechaCorta(registro.fecha),
       registro.message,
       registro.status,
-      normalizarTextoPlano(registro.tiempo),
-      registro.periodo,
-      registro.data,
+      "",
     ]);
+    if (esEstadoError(registro.status)) {
+      fila.classList.add("error");
+    }
+
+    const celdas = fila.querySelectorAll("td");
+    const celdaStatus = celdas[4];
+    const celdaAccion = celdas[5];
+    const badge = document.createElement("span");
+    badge.className = `badge-estado ${
+      esEstadoError(registro.status) ? "badge-estado--error" : "badge-estado--ok"
+    }`;
+    badge.textContent = registro.status || "—";
+    celdaStatus.textContent = "";
+    celdaStatus.appendChild(badge);
+
+    const botonVer = document.createElement("button");
+    botonVer.className = "boton-icono-ghost";
+    botonVer.type = "button";
+    botonVer.title = "Ver detalle completo";
+    botonVer.setAttribute("aria-label", "Ver detalle completo");
+    botonVer.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-4.5 0-8.3 2.9-10 7 1.7 4.1 5.5 7 10 7s8.3-2.9 10-7c-1.7-4.1-5.5-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path></svg>`;
+    botonVer.addEventListener("click", () => {
+      construirModalDetallado(
+        "Detalle mel2.logacciones",
+        [
+          { clave: "accion", valor: registro.accion },
+          { clave: "cod_alumno", valor: registro.codAlumno },
+          { clave: "cod_user", valor: registro.codUser },
+          { clave: "fecha", valor: formatearFechaDetallada(registro.fecha) },
+          { clave: "message", valor: registro.message },
+          { clave: "status", valor: registro.status },
+          { clave: "tiempo", valor: normalizarTextoPlano(registro.tiempo) },
+          { clave: "periodo", valor: registro.periodo },
+        ],
+        {
+          esError: esEstadoError(registro.status),
+          pill: esEstadoError(registro.status) ? "Error" : "OK",
+          jsonExtra: { clave: "data", valor: normalizarCampoData(registro.data) },
+        }
+      );
+    });
+    celdaAccion.textContent = "";
+    celdaAccion.appendChild(botonVer);
+
     cuerpoDetalleAcciones.appendChild(fila);
   });
 }
@@ -1836,7 +1877,7 @@ function renderizarDetalleEventos(
 
   if (registros.length === 0) {
     cuerpoDetalleEventos.appendChild(
-      crearFilaVacia("Sin resultados en mel2.logeventos.", 11)
+      crearFilaVacia("Sin resultados en mel2.logeventos.", 6)
     );
     return;
   }
@@ -1844,17 +1885,61 @@ function renderizarDetalleEventos(
   registros.forEach((registro) => {
     const fila = crearFilaDetalle([
       registro.urlService,
-      registro.status,
       registro.codeStudent,
-      registro.codeEmplid,
-      registro.action,
       registro.message,
-      registro.event,
-      normalizarTextoPlano(registro.duration),
-      registro.data,
-      registro.code,
-      formatearFechaDetallada(registro.fecha),
+      formatearFechaCorta(registro.fecha),
+      registro.status,
+      "",
     ]);
+    if (esEstadoError(registro.status)) {
+      fila.classList.add("error");
+    }
+
+    const celdas = fila.querySelectorAll("td");
+    const celdaStatus = celdas[4];
+    const celdaAccion = celdas[5];
+    const badge = document.createElement("span");
+    badge.className = `badge-estado ${
+      esEstadoError(registro.status) ? "badge-estado--error" : "badge-estado--ok"
+    }`;
+    badge.textContent = registro.status || "—";
+    celdaStatus.textContent = "";
+    celdaStatus.appendChild(badge);
+
+    const botonVer = document.createElement("button");
+    botonVer.className = "boton-icono-ghost";
+    botonVer.type = "button";
+    botonVer.title = "Ver detalle completo";
+    botonVer.setAttribute("aria-label", "Ver detalle completo");
+    botonVer.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-4.5 0-8.3 2.9-10 7 1.7 4.1 5.5 7 10 7s8.3-2.9 10-7c-1.7-4.1-5.5-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path></svg>`;
+    botonVer.addEventListener("click", () => {
+      construirModalDetallado(
+        "Detalle mel2.logeventos",
+        [
+          { clave: "url_service", valor: registro.urlService },
+          { clave: "status", valor: registro.status },
+          { clave: "code_student", valor: registro.codeStudent },
+          { clave: "code_emplid", valor: registro.codeEmplid },
+          { clave: "action", valor: registro.action },
+          { clave: "message", valor: registro.message },
+          { clave: "event", valor: registro.event },
+          { clave: "duration", valor: normalizarTextoPlano(registro.duration) },
+          { clave: "code", valor: registro.code },
+          { clave: "fecha", valor: formatearFechaDetallada(registro.fecha) },
+        ],
+        {
+          esError: esEstadoError(registro.status),
+          pill: esEstadoError(registro.status) ? "Error" : "OK",
+          jsonExtra: {
+            clave: "data",
+            valor: formatearJsonLegible(registro.data),
+          },
+        }
+      );
+    });
+    celdaAccion.textContent = "";
+    celdaAccion.appendChild(botonVer);
+
     cuerpoDetalleEventos.appendChild(fila);
   });
 }
@@ -2052,13 +2137,68 @@ function parsearRespuestaDetalleOpensearch(
     );
 }
 
+function construirFirmaDetalleOpensearch(
+  registro: LogDetalleOpensearch
+): string {
+  const base = {
+    urlService: registro.urlService,
+    fechaEvento: registro.fechaEvento.getTime(),
+    codeStudent: registro.codeStudent,
+    codeEmplid: registro.codeEmplid,
+    action: registro.action,
+    message: registro.message,
+    status: registro.status,
+    idTransaccion: registro.idTransaccion,
+    idSession: registro.idSession,
+    data: registro.data,
+  };
+
+  try {
+    return JSON.stringify(base);
+  } catch (error) {
+    console.warn("No se pudo serializar registro de detalle:", error);
+    return [
+      registro.urlService,
+      registro.fechaEvento.getTime(),
+      registro.codeStudent,
+      registro.codeEmplid,
+      registro.action,
+      registro.message,
+      registro.status,
+      registro.idTransaccion,
+      registro.idSession,
+      normalizarCampoData(registro.data),
+    ].join("|");
+  }
+}
+
+function deduplicarDetalleOpensearch(
+  registros: LogDetalleOpensearch[]
+): LogDetalleOpensearch[] {
+  const firmas = new Set<string>();
+  const unicos: LogDetalleOpensearch[] = [];
+
+  registros.forEach((registro) => {
+    const firma = construirFirmaDetalleOpensearch(registro);
+    if (firmas.has(firma)) {
+      return;
+    }
+    firmas.add(firma);
+    unicos.push(registro);
+  });
+
+  return unicos;
+}
+
 async function cargarDetalleDesdeJson(
   contenido: string,
   origen: "portapapeles" | "archivo"
 ): Promise<void> {
   mostrarEstadoDetalleLogs("Procesando datos de Opensearch...", "info");
   try {
-    const registros = parsearRespuestaDetalleOpensearch(contenido);
+    const registros = deduplicarDetalleOpensearch(
+      parsearRespuestaDetalleOpensearch(contenido)
+    );
     estadoDetalleLogs.opensearch = ordenarPorFechaAsc(
       registros,
       (registro) => registro.fechaEvento
