@@ -959,7 +959,7 @@ function construirQueryOpensearch(
     "code_student",
     "code_emplid",
     "urlService",
-    "log"
+    "data"
   ],
   "query": {
     "bool": {
@@ -1530,7 +1530,7 @@ function descargarFiltradoCompleto(): void {
     "idTransaccion",
     "idSession",
     "message",
-    "log",
+    "data",
   ];
 
   const lineas = [encabezados.join(",")];
@@ -1757,7 +1757,7 @@ function construirQueryDetalleOpensearch(
     "code_student",
     "code_emplid",
     "urlService",
-    "log"
+    "data"
   ],
   "query": {
     "bool": {
