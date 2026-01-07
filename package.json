@@ -15,6 +15,7 @@
     "@types/node": "20.11.30",
     "@types/pg": "8.11.6",
     "@types/pg-query-stream": "3.4.0",
+    "@types/sortablejs": "^1.15.9",
     "copyfiles": "^2.4.1",
     "electron": "27.1.2",
     "electron-builder": "^24.13.3",
@@ -27,7 +28,8 @@
     "chartjs-adapter-date-fns": "3.0.0",
     "dotenv": "^17.2.3",
     "pg": "8.11.3",
-    "pg-query-stream": "4.10.3"
+    "pg-query-stream": "4.10.3",
+    "sortablejs": "1.15.2"
   },
   "build": {
     "appId": "com.tuempresa.monitoreomel",

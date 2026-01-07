@@ -10,6 +10,9 @@ export interface RegistroCrudo {
   fecha: string;
   accion: string;
   tiempo: number | string;
+  id_transaccion?: string | null;
+  id_sesion?: string | null;
+  status?: string | null;
 }
 
 export interface ConfiguracionBaseDeDatos {
@@ -86,10 +89,9 @@ export async function consultarLogsPorRangoDeFechas(
 
   // Consulta directa en SQL, ordenada por tiempo para facilitar el cálculo por minuto en el renderer.
   const consultaSql = `
-    SELECT fecha, accion, tiempo
+    SELECT fecha, accion, tiempo, id_transaccion, id_sesion, status
     FROM mel2.logacciones
     WHERE fecha >= $1 AND fecha <= $2
-    ORDER BY fecha ASC
   `;
 
   const flujoDeConsulta = new QueryStream(consultaSql, [fechaInicioIso, fechaFinIso], {
@@ -105,7 +107,10 @@ export async function consultarLogsPorRangoDeFechas(
         registrosAcumulados.push({
           fecha: fila.fecha,
           accion: fila.accion,
-          tiempo: fila.tiempo
+          tiempo: fila.tiempo,
+          id_transaccion: fila.id_transaccion,
+          id_sesion: fila.id_sesion,
+          status: fila.status
         });
       });
 

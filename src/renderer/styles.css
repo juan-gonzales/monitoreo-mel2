@@ -197,6 +197,12 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
+.menu-secundario__item--deshabilitado {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .menu-secundario__punto {
   width: 8px;
   height: 8px;
@@ -519,6 +525,25 @@ body {
   margin-top: 0;
 }
 
+.lista-graficos-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.grupo-graficos-accion {
+  padding: 12px;
+  border: 1px solid var(--borde-suave);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.grupo-graficos-accion .graficos {
+  margin-top: 8px;
+}
+
 .grafico {
   background-color: var(--color-panel);
   border: 1px solid var(--borde-suave);
@@ -736,6 +761,12 @@ body {
   background: #fef2f2;
 }
 
+.badge-estado--ok {
+  background: #ecfdf3;
+  color: #166534;
+  border: 1px solid #22c55e;
+}
+
 .badge-estado {
   display: inline-flex;
   align-items: center;
@@ -746,6 +777,11 @@ body {
   font-weight: 700;
   font-size: 12px;
   color: #0f172a;
+}
+
+.badge-estado__icono {
+  width: 16px;
+  height: 16px;
 }
 
 .badge-estado--error {
@@ -788,6 +824,11 @@ body {
 .boton-icono-ghost svg {
   width: 16px;
   height: 16px;
+}
+
+.boton-icono-ghost--sm {
+  padding: 6px;
+  border-radius: 8px;
 }
 
 .modal {
@@ -855,6 +896,41 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lista-acciones-copia {
+  display: grid;
+  gap: 10px;
+}
+
+.lista-acciones-copia__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde-suave);
+  border-radius: 12px;
+  background: #f9fafb;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+  cursor: grab;
+  user-select: none;
+}
+
+.lista-acciones-copia__accion {
+  font-weight: 700;
+  color: #111827;
+}
+
+.lista-acciones-copia input[type="checkbox"] {
+  accent-color: var(--color-azul);
 }
 
 .modal__fila {

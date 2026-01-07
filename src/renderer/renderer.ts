@@ -3,12 +3,30 @@ interface RegistroCrudo {
   fecha: string;
   accion: string;
   tiempo: number | string;
+  id_transaccion?: string | null;
+  id_sesion?: string | null;
+  status?: string | null;
 }
 
 type ChartConstructor = typeof import("chart.js")["Chart"];
 
-// Chart se inyecta en el ámbito global mediante los scripts UMD declarados en index.html.
+interface SortableOptionsLigero {
+  animation?: number;
+  handle?: string;
+  ghostClass?: string;
+  onEnd?: () => void;
+}
+
+type SortableInstance = {
+  destroy: () => void;
+};
+
+// Chart y Sortable se inyectan en el ámbito global mediante los scripts UMD declarados en index.html.
 declare const Chart: ChartConstructor;
+declare class Sortable {
+  constructor(element: HTMLElement, options?: SortableOptionsLigero);
+  destroy(): void;
+}
 
 interface LogOpensearchNormalizado {
   fechaEvento: Date;
@@ -28,6 +46,10 @@ interface RegistroNormalizado {
   fechaEvento: Date;
   accion: string;
   tiempo: number;
+  idTransaccion: string;
+  idSesion: string;
+  status: string;
+  fechaCruda: string;
 }
 
 interface ConfiguracionBaseDeDatos {
@@ -176,24 +198,10 @@ const contenedorEstado = document.getElementById(
 const contenedorGraficos = document.getElementById(
   "contenedor-graficos"
 ) as HTMLDivElement;
-const contenedorFiltroAccion = document.getElementById(
-  "contenedor-filtro-accion"
-) as HTMLDivElement;
 const botonCopiarGraficos = document.getElementById(
   "boton-copiar-graficos"
 ) as HTMLButtonElement;
-const textoBotonCopiar = botonCopiarGraficos.querySelector(
-  "span"
-) as HTMLSpanElement;
-const selectorAccion = document.getElementById(
-  "filtro-accion"
-) as HTMLSelectElement;
-const tituloGraficoDuracion = document.getElementById(
-  "titulo-grafico-duracion"
-) as HTMLHeadingElement;
-const tituloGraficoConteo = document.getElementById(
-  "titulo-grafico-conteo"
-) as HTMLHeadingElement;
+botonCopiarGraficos.disabled = true;
 const seccionLogsErrores = document.getElementById(
   "seccion-logs-errores"
 ) as HTMLElement;
@@ -306,12 +314,6 @@ const cuerpoDetalleEventos = document.getElementById(
 const TEXTO_BASE_TITULO_DURACION = "Duración promedio por minuto";
 const TEXTO_BASE_TITULO_CONTEO = "Cantidad de transacciones por minuto";
 
-const lienzoGraficoDuracion = document.getElementById(
-  "grafico-duracion"
-) as HTMLCanvasElement;
-const lienzoGraficoCantidad = document.getElementById(
-  "grafico-cantidad"
-) as HTMLCanvasElement;
 const modalDetalleOpensearch = document.getElementById(
   "modal-detalle-opensearch"
 ) as HTMLDivElement;
@@ -345,12 +347,42 @@ const tablaFiltradaNext = document.getElementById(
 const overlayModalTabla = modalTablaFiltrada.querySelector(
   ".modal__overlay"
 ) as HTMLDivElement | null;
+const modalDetallePunto = document.getElementById(
+  "modal-detalle-punto"
+) as HTMLDivElement;
+const modalDetallePuntoCerrar = document.getElementById(
+  "modal-detalle-punto-cerrar"
+) as HTMLButtonElement;
+const modalDetallePuntoTitulo = document.getElementById(
+  "modal-detalle-punto-titulo"
+) as HTMLHeadingElement;
+const modalDetallePuntoCuerpo = document.getElementById(
+  "modal-detalle-punto-cuerpo"
+) as HTMLTableSectionElement;
+const overlayModalDetallePunto = modalDetallePunto.querySelector(
+  ".modal__overlay"
+) as HTMLDivElement | null;
 
 type Grafico = InstanceType<ChartConstructor>;
 
-let graficoDuracionPromedio: Grafico | undefined;
-let graficoCantidadPorMinuto: Grafico | undefined;
+const graficosPorAccion = new Map<
+  string,
+  {
+    duracion?: Grafico;
+    conteo?: Grafico;
+  }
+>();
 let graficoErroresPorHora: Grafico | undefined;
+interface VistaGraficosAccion {
+  contenedor: HTMLDivElement;
+  canvasDuracion: HTMLCanvasElement;
+  canvasConteo: HTMLCanvasElement;
+  tituloDuracion: HTMLHeadingElement;
+  tituloConteo: HTMLHeadingElement;
+}
+const vistasGraficosPorAccion = new Map<string, VistaGraficosAccion>();
+let sortableAcciones: SortableInstance | null = null;
+let ordenAccionesCopia: string[] = [];
 
 const appLayout = document.querySelector(".app-layout") as HTMLDivElement;
 const botonToggleMenu = document.getElementById(
@@ -391,9 +423,38 @@ const gruposMenu = document.querySelectorAll(
 const seccionDashboard = document.getElementById(
   "seccion-dashboard"
 ) as HTMLElement;
+const seccionDashboardTiempos = document.getElementById(
+  "seccion-dashboard-tiempos"
+) as HTMLElement;
 const seccionConfiguracion = document.getElementById(
   "seccion-configuracion"
 ) as HTMLElement;
+const modalCopiarGraficos = document.getElementById(
+  "modal-copiar-graficos"
+) as HTMLDivElement;
+const modalCopiarCerrar = document.getElementById(
+  "modal-copiar-cerrar"
+) as HTMLButtonElement;
+const modalCopiarCancelar = document.getElementById(
+  "modal-copiar-cancelar"
+) as HTMLButtonElement;
+const modalCopiarConfirmar = document.getElementById(
+  "modal-copiar-confirmar"
+) as HTMLButtonElement;
+const listaAccionesCopia = document.getElementById(
+  "lista-acciones-copia"
+) as HTMLDivElement;
+const contenedoresGraficosPorAccion = new Map<string, HTMLDivElement>();
+const modalCopiarOverlay = modalCopiarGraficos.querySelector(
+  ".modal__overlay"
+) as HTMLDivElement | null;
+modalCopiarConfirmar.disabled = true;
+const itemMenuTiempos = document.querySelector(
+  '[data-section="dashboard-tiempos"]'
+) as HTMLLIElement | null;
+const grupoDashboard = document.querySelector(
+  '[data-grupo="dashboard"]'
+) as HTMLLIElement | null;
 
 const formularioConfiguracion = document.getElementById(
   "formulario-configuracion"
@@ -431,6 +492,7 @@ const estadoDashboard: EstadoDashboard = {
   registrosFiltrados: [],
   accionesDisponibles: [],
 };
+let accionesSeleccionadasParaCopiar = new Set<string>();
 
 const estadoOpenSearch: EstadoOpenSearch = {
   registros: [],
@@ -453,6 +515,7 @@ const estadoDetalleLogs: EstadoDetalleLogs = {
 
 type SeccionActiva =
   | "dashboard"
+  | "dashboard-tiempos"
   | "configuracion"
   | "logs-errores"
   | "detalle-logs";
@@ -502,11 +565,26 @@ function bloquearUIDuranteCarga(
   botonCargarCsv.disabled = estaCargando;
   inputFechaInicio.disabled = estaCargando;
   inputFechaFin.disabled = estaCargando;
-  selectorAccion.disabled = estaCargando;
   botonConsultar.textContent = estaCargando ? "Consultando..." : "Consultar";
   botonCargarCsv.textContent = estaCargando
     ? "Cargando CSV..."
     : "Consultar por CSV";
+}
+
+function actualizarDisponibilidadDeTiempos(disponible: boolean): void {
+  if (!itemMenuTiempos) {
+    return;
+  }
+
+  itemMenuTiempos.classList.toggle(
+    "menu-secundario__item--deshabilitado",
+    !disponible
+  );
+  itemMenuTiempos.setAttribute("aria-disabled", String(!disponible));
+
+  if (!disponible && seccionActual === "dashboard-tiempos") {
+    cambiarSeccion("dashboard");
+  }
 }
 
 /**
@@ -674,7 +752,16 @@ function cambiarSeccion(seccion: SeccionActiva): void {
     grupoOpensearch?.classList.remove("activo");
   }
 
+  const seccionDashboardActiva =
+    seccion === "dashboard" || seccion === "dashboard-tiempos";
+  if (seccionDashboardActiva) {
+    grupoDashboard?.classList.add("abierto", "activo");
+  } else {
+    grupoDashboard?.classList.remove("activo");
+  }
+
   seccionDashboard.hidden = seccion !== "dashboard";
+  seccionDashboardTiempos.hidden = seccion !== "dashboard-tiempos";
   seccionConfiguracion.hidden = seccion !== "configuracion";
   seccionLogsErrores.hidden = seccion !== "logs-errores";
   seccionDetalleLogs.hidden = seccion !== "detalle-logs";
@@ -692,6 +779,10 @@ function normalizarRegistroCrudo(
     fechaEvento: new Date(registroCrudo.fecha),
     accion: registroCrudo.accion,
     tiempo: Number(registroCrudo.tiempo),
+    idTransaccion: String(registroCrudo.id_transaccion ?? ""),
+    idSesion: String(registroCrudo.id_sesion ?? ""),
+    status: String(registroCrudo.status ?? ""),
+    fechaCruda: registroCrudo.fecha,
   };
 }
 
@@ -718,19 +809,23 @@ function cargarRegistrosEnDashboard(
 
   if (registrosNormalizados.length === 0) {
     mostrarEstadoDeConsulta(mensajeSinDatos, "alerta");
-    contenedorGraficos.hidden = true;
-    contenedorFiltroAccion.hidden = true;
+    limpiarGraficosDeAcciones();
+    actualizarListaAccionesParaCopiar([]);
+    actualizarDisponibilidadDeTiempos(false);
     return;
   }
 
   estadoDashboard.registrosCrudos = registrosNormalizados;
+  estadoDashboard.registrosCrudos.sort(
+    (a, b) => a.fechaEvento.getTime() - b.fechaEvento.getTime()
+  );
+  estadoDashboard.registrosFiltrados = registrosNormalizados;
   const accionesUnicas = Array.from(
     new Set<string>(registrosNormalizados.map((registro) => registro.accion))
   ).sort();
   estadoDashboard.accionesDisponibles = accionesUnicas;
-
-  poblarFiltroAccion();
-  actualizarGraficosConFiltroSeleccionado();
+  renderizarTodosLosGraficosPorAccion();
+  actualizarDisponibilidadDeTiempos(true);
   mostrarEstadoDeConsulta(mensajeExito, "exito");
 }
 
@@ -739,28 +834,47 @@ function cargarRegistrosEnDashboard(
  * No dispara consultas nuevas; simplemente actualiza el selector disponible en la UI.
  * Impacta en la navegabilidad y en el recalculo de gráficos sin tocar la base de datos.
  */
-function poblarFiltroAccion(): void {
-  selectorAccion.innerHTML = "";
-  const opcionTodas = document.createElement("option");
-  opcionTodas.value = "todas";
-  opcionTodas.textContent = "Todas las acciones";
-  selectorAccion.appendChild(opcionTodas);
+function crearVistaGraficosParaAccion(
+  accion: string
+): VistaGraficosAccion {
+  const contenedor = document.createElement("div");
+  contenedor.className = "grupo-graficos-accion";
+  contenedor.dataset.accion = accion;
 
-  estadoDashboard.accionesDisponibles.forEach((accion) => {
-    const opcion = document.createElement("option");
-    if (
-      !accion.includes("Seleccion") &&
-      !accion.includes("Deselección") &&
-      !accion.includes("Selección")
-    ) {
-      opcion.value = accion;
-      opcion.textContent = accion;
-      selectorAccion.appendChild(opcion);
-    }
-  });
+  const layout = document.createElement("div");
+  layout.className = "graficos";
 
-  contenedorFiltroAccion.hidden =
-    estadoDashboard.accionesDisponibles.length === 0;
+  const tarjetaDuracion = document.createElement("div");
+  tarjetaDuracion.className = "grafico";
+  const headerDuracion = document.createElement("header");
+  const tituloDuracion = document.createElement("h3");
+  tituloDuracion.textContent = `${TEXTO_BASE_TITULO_DURACION} - ${accion}`;
+  headerDuracion.appendChild(tituloDuracion);
+  tarjetaDuracion.appendChild(headerDuracion);
+  const canvasDuracion = document.createElement("canvas");
+  tarjetaDuracion.appendChild(canvasDuracion);
+
+  const tarjetaConteo = document.createElement("div");
+  tarjetaConteo.className = "grafico";
+  const headerConteo = document.createElement("header");
+  const tituloConteo = document.createElement("h3");
+  tituloConteo.textContent = `${TEXTO_BASE_TITULO_CONTEO} - ${accion}`;
+  headerConteo.appendChild(tituloConteo);
+  tarjetaConteo.appendChild(headerConteo);
+  const canvasConteo = document.createElement("canvas");
+  tarjetaConteo.appendChild(canvasConteo);
+
+  layout.appendChild(tarjetaDuracion);
+  layout.appendChild(tarjetaConteo);
+  contenedor.appendChild(layout);
+
+  return {
+    contenedor,
+    canvasDuracion,
+    canvasConteo,
+    tituloDuracion,
+    tituloConteo,
+  };
 }
 
 /**
@@ -1685,7 +1799,10 @@ function formatearFechaDetallada(fecha: Date): string {
   if (!(fecha instanceof Date) || Number.isNaN(fecha.getTime())) {
     return "";
   }
-  return fecha.toISOString();
+  return fecha.toLocaleString("es-PE", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  });
 }
 
 function formatearFechaCorta(fecha: Date): string {
@@ -2455,13 +2572,12 @@ function alternarMenuLateral(): void {
  * Útil porque el evento de redimensionamiento no siempre dispara al ajustar la grilla interna.
  */
 function redimensionarGraficos(): void {
-  if (!graficoDuracionPromedio && !graficoCantidadPorMinuto) {
-    return;
-  }
-
   requestAnimationFrame(() => {
-    graficoDuracionPromedio?.resize();
-    graficoCantidadPorMinuto?.resize();
+    graficosPorAccion.forEach((instancias) => {
+      instancias.duracion?.resize();
+      instancias.conteo?.resize();
+    });
+    graficoErroresPorHora?.resize();
   });
 }
 
@@ -2520,8 +2636,10 @@ async function imagenDesdeCanvas(
  * Construye un canvas que replica visualmente la sección de gráficos (sin usar foreignObject)
  * combinando textos y los lienzos de Chart.js ya renderizados.
  */
-async function construirImagenDeGraficos(): Promise<HTMLCanvasElement> {
-  const rectContenedor = contenedorGraficos.getBoundingClientRect();
+async function construirImagenDeGraficos(
+  contenedor: HTMLElement
+): Promise<HTMLCanvasElement> {
+  const rectContenedor = contenedor.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(Math.round(rectContenedor.width * dpr), 1);
@@ -2538,7 +2656,7 @@ async function construirImagenDeGraficos(): Promise<HTMLCanvasElement> {
   contexto.fillRect(0, 0, rectContenedor.width, rectContenedor.height);
 
   const tarjetas = Array.from(
-    contenedorGraficos.querySelectorAll(".grafico")
+    contenedor.querySelectorAll(".grafico")
   ) as HTMLDivElement[];
   for (const tarjeta of tarjetas) {
     const rectTarjeta = tarjeta.getBoundingClientRect();
@@ -2581,8 +2699,13 @@ async function construirImagenDeGraficos(): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
-async function copiarGraficosComoImagen(): Promise<void> {
-  if (contenedorGraficos.hidden) {
+async function copiarGraficosDeAccionComoImagen(accion: string): Promise<void> {
+  const contenedorAccion = contenedoresGraficosPorAccion.get(accion);
+  if (!contenedorAccion || contenedorGraficos.hidden) {
+    mostrarEstadoDeConsulta(
+      "No hay gráficos disponibles para copiar.",
+      "alerta"
+    );
     return;
   }
 
@@ -2595,9 +2718,9 @@ async function copiarGraficosComoImagen(): Promise<void> {
   }
 
   try {
-    botonCopiarGraficos.disabled = true;
-    textoBotonCopiar.textContent = "Copiando...";
-    const canvas = await construirImagenDeGraficos();
+    modalCopiarConfirmar.disabled = true;
+    modalCopiarConfirmar.textContent = "Copiando...";
+    const canvas = await construirImagenDeGraficos(contenedorAccion);
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((resultado) => {
         if (resultado) {
@@ -2613,14 +2736,15 @@ async function copiarGraficosComoImagen(): Promise<void> {
       }),
     ]);
     mostrarEstadoDeConsulta("Gráficos copiados como imagen.", "exito");
+    cerrarModalCopiarGraficos();
   } catch (error) {
     console.error("Error al copiar gráficos:", error);
     const mensaje =
       error instanceof Error ? error.message : "No se pudo copiar la imagen.";
     mostrarEstadoDeConsulta(mensaje, "error");
   } finally {
-    botonCopiarGraficos.disabled = false;
-    textoBotonCopiar.textContent = "Copiar";
+    modalCopiarConfirmar.disabled = false;
+    modalCopiarConfirmar.textContent = "Copiar";
   }
 }
 
@@ -2691,6 +2815,233 @@ async function copiarGraficoErroresComoImagen(): Promise<void> {
   } finally {
     botonCopiarGraficoErrores.disabled = false;
   }
+}
+
+async function copiarGraficosDeAccionesSeleccionadas(): Promise<void> {
+  const acciones = ordenAccionesCopia.filter((accion) =>
+    accionesSeleccionadasParaCopiar.has(accion)
+  );
+  if (acciones.length === 0) {
+    mostrarEstadoDeConsulta(
+      "Selecciona al menos un par de gráficos para copiar.",
+      "alerta"
+    );
+    return;
+  }
+
+  const contenedores = acciones
+    .map((accion) => contenedoresGraficosPorAccion.get(accion))
+    .filter((c): c is HTMLDivElement => Boolean(c));
+
+  if (contenedores.length === 0) {
+    mostrarEstadoDeConsulta(
+      "No se encontraron contenedores de gráficos para las acciones seleccionadas.",
+      "alerta"
+    );
+    return;
+  }
+
+  try {
+    modalCopiarConfirmar.disabled = true;
+    modalCopiarConfirmar.textContent = "Copiando...";
+
+    const capturas = await Promise.all(
+      contenedores.map((contenedor) => construirImagenDeGraficos(contenedor))
+    );
+
+    const ancho = Math.max(...capturas.map((c) => c.width));
+    const alto =
+      capturas.reduce((acc, c) => acc + c.height, 0) +
+      Math.max(0, (capturas.length - 1) * 24);
+    const lienzoFinal = document.createElement("canvas");
+    lienzoFinal.width = ancho;
+    lienzoFinal.height = alto;
+    const ctx = lienzoFinal.getContext("2d");
+    if (!ctx) {
+      throw new Error("No se pudo preparar el lienzo final.");
+    }
+
+    let offsetY = 0;
+    capturas.forEach((cap) => {
+      ctx.drawImage(cap, 0, offsetY);
+      offsetY += cap.height + 24;
+    });
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      lienzoFinal.toBlob((resultado) => {
+        if (resultado) {
+          resolve(resultado);
+        } else {
+          reject(new Error("No se pudo preparar la imagen para copiar."));
+        }
+      });
+    });
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "image/png": blob,
+      }),
+    ]);
+    mostrarEstadoDeConsulta("Gráficos copiados como imagen.", "exito");
+    cerrarModalCopiarGraficos();
+  } catch (error) {
+    console.error("Error al copiar gráficos:", error);
+    const mensaje =
+      error instanceof Error ? error.message : "No se pudo copiar la imagen.";
+    mostrarEstadoDeConsulta(mensaje, "error");
+  } finally {
+    modalCopiarConfirmar.disabled = false;
+    modalCopiarConfirmar.textContent = "Copiar";
+  }
+}
+
+function abrirModalCopiarGraficos(): void {
+  if (contenedorGraficos.hidden || graficosPorAccion.size === 0) {
+    mostrarEstadoDeConsulta(
+      "Genera datos antes de copiar los gráficos.",
+      "alerta"
+    );
+    return;
+  }
+
+  modalCopiarGraficos.hidden = false;
+}
+
+function cerrarModalCopiarGraficos(): void {
+  modalCopiarGraficos.hidden = true;
+}
+
+function cerrarModalDetallePunto(): void {
+  modalDetallePunto.hidden = true;
+  modalDetallePuntoCuerpo.innerHTML = "";
+}
+
+function obtenerRegistrosParaPunto(
+  accion: string,
+  dia: string,
+  etiquetaHora: string
+): RegistroNormalizado[] {
+  return estadoDashboard.registrosCrudos.filter((registro) => {
+    if (registro.accion !== accion) {
+      return false;
+    }
+
+    const fechaTruncada = new Date(registro.fechaEvento);
+    fechaTruncada.setSeconds(0, 0);
+    const diaRegistro = obtenerIdDia(fechaTruncada);
+    const horaRegistro = formatearHoraParaEtiqueta(fechaTruncada);
+    return diaRegistro === dia && horaRegistro === etiquetaHora;
+  });
+}
+
+function mostrarDetalleDeRegistros(
+  accion: string,
+  dia: string,
+  etiquetaHora: string,
+  registros: RegistroNormalizado[]
+): void {
+  modalDetallePuntoTitulo.textContent = `Registros - ${accion} (${dia} ${etiquetaHora})`;
+  modalDetallePuntoCuerpo.innerHTML = "";
+
+  if (registros.length === 0) {
+    const filaVacia = document.createElement("tr");
+    filaVacia.className = "tabla-detalle__vacio";
+    const celda = document.createElement("td");
+    celda.colSpan = 6;
+    celda.textContent = "No se encontraron registros para este punto.";
+    filaVacia.appendChild(celda);
+    modalDetallePuntoCuerpo.appendChild(filaVacia);
+  } else {
+    registros
+      .sort((a, b) => a.fechaEvento.getTime() - b.fechaEvento.getTime())
+      .forEach((registro) => {
+        const fila = document.createElement("tr");
+        const celdas = [
+          formatearFechaCorta(registro.fechaEvento),
+          registro.accion,
+          registro.tiempo.toString(),
+          registro.idTransaccion || "—",
+          registro.idSesion || "—",
+        ];
+        celdas.forEach((valor) => {
+          const td = document.createElement("td");
+          td.textContent = valor;
+          fila.appendChild(td);
+        });
+
+        const celdaStatus = document.createElement("td");
+        celdaStatus.appendChild(crearBadgeEstadoIcono(registro.status));
+        fila.appendChild(celdaStatus);
+
+        const celdaDetalle = document.createElement("td");
+        const botonDetalle = document.createElement("button");
+        botonDetalle.className = "boton-icono-ghost boton-icono-ghost--sm";
+        botonDetalle.type = "button";
+        botonDetalle.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 5c-4.5 0-8.3 2.9-10 7 1.7 4.1 5.5 7 10 7s8.3-2.9 10-7c-1.7-4.1-5.5-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path></svg>';
+        botonDetalle.title = "Ver detalle en Logs";
+        botonDetalle.addEventListener("click", () => {
+          if (!registro.idTransaccion && !registro.idSesion) {
+            mostrarEstadoDetalleLogs(
+              "El registro no tiene idTransaccion ni idSession.",
+              "alerta"
+            );
+            return;
+          }
+          inputDetalleIdTransaccion.value = registro.idTransaccion;
+          inputDetalleIdSession.value = registro.idSesion;
+          actualizarAvisoOpensearchConFiltros(obtenerFiltrosDetalleActual());
+          cambiarSeccion("detalle-logs");
+          void manejarGenerarDetalle();
+          cerrarModalDetallePunto();
+        });
+        celdaDetalle.appendChild(botonDetalle);
+        fila.appendChild(celdaDetalle);
+        modalDetallePuntoCuerpo.appendChild(fila);
+      });
+  }
+
+  modalDetallePunto.hidden = false;
+}
+
+function manejarClickEnGrafico(
+  accion: string,
+  evento: unknown,
+  canvas: HTMLCanvasElement
+): void {
+  const grafico = Chart.getChart(canvas);
+  if (!grafico) {
+    return;
+  }
+
+  const elementos = grafico.getElementsAtEventForMode(
+    evento as unknown as Event,
+    "nearest",
+    { intersect: true },
+    false
+  );
+
+  if (!elementos || elementos.length === 0) {
+    return;
+  }
+
+  const indice = elementos[0].index;
+  const indiceDataset = elementos[0].datasetIndex;
+  const etiquetaHora = grafico.data.labels?.[indice];
+  const dataset = grafico.data.datasets?.[indiceDataset];
+  const dia = dataset?.label;
+
+  if (
+    typeof etiquetaHora !== "string" ||
+    typeof dia !== "string" ||
+    !etiquetaHora ||
+    !dia
+  ) {
+    return;
+  }
+
+  const registros = obtenerRegistrosParaPunto(accion, dia, etiquetaHora);
+  mostrarDetalleDeRegistros(accion, dia, etiquetaHora, registros);
 }
 
 /**
@@ -2955,15 +3306,13 @@ function calcularMetricasParaGraficos(
  * Respeta la regla de eje Y con mínimo 7 y máximo dinámico según los valores presentes.
  * Impacta en la claridad visual de las métricas de rendimiento de la aplicación monitoreada.
  */
-function renderizarGraficoDeDuracion(
+function construirGraficoDeDuracion(
+  canvas: HTMLCanvasElement,
   etiquetasHoras: string[],
   seriesPorDia: SeriePorDia[],
-  maximoPromedio: number
-): void {
-  if (graficoDuracionPromedio) {
-    graficoDuracionPromedio.destroy();
-  }
-
+  maximoPromedio: number,
+  accion: string
+): Grafico {
   const datasets = seriesPorDia.map((serie, indice) => {
     const color = obtenerColorDeSerie(indice);
     return {
@@ -2979,7 +3328,7 @@ function renderizarGraficoDeDuracion(
 
   const limiteSuperior = maximoPromedio > 7 ? Math.ceil(maximoPromedio) + 1 : 7;
 
-  graficoDuracionPromedio = new Chart(lienzoGraficoDuracion, {
+  return new Chart(canvas, {
     type: "line",
     data: {
       labels: etiquetasHoras,
@@ -3011,6 +3360,9 @@ function renderizarGraficoDeDuracion(
           labels: { color: "#111827", boxWidth: 16 },
         },
       },
+      onClick: (evento) => {
+        manejarClickEnGrafico(accion, evento, canvas);
+      },
     },
   });
 }
@@ -3020,15 +3372,13 @@ function renderizarGraficoDeDuracion(
  * Mantiene el mismo eje X que el gráfico de duración para facilitar la comparación visual.
  * Impacta en la comprensión de volumen de actividad durante el rango seleccionado.
  */
-function renderizarGraficoDeConteo(
+function construirGraficoDeConteo(
+  canvas: HTMLCanvasElement,
   etiquetasHoras: string[],
   seriesPorDia: SeriePorDia[],
-  maximoConteo: number
-): void {
-  if (graficoCantidadPorMinuto) {
-    graficoCantidadPorMinuto.destroy();
-  }
-
+  maximoConteo: number,
+  accion: string
+): Grafico {
   const esUnSoloDia = seriesPorDia.length === 1;
   const datasets = seriesPorDia.map((serie, indice) => {
     const color = obtenerColorDeSerie(indice + 2); // Desplaza para variar frente al gráfico de duración
@@ -3059,7 +3409,7 @@ function renderizarGraficoDeConteo(
 
   const limiteSuperior = Math.max(1, Math.ceil(maximoConteo) + 1);
 
-  graficoCantidadPorMinuto = new Chart(lienzoGraficoCantidad, {
+  return new Chart(canvas, {
     type: esUnSoloDia ? "bar" : "line",
     data: {
       labels: etiquetasHoras,
@@ -3091,50 +3441,159 @@ function renderizarGraficoDeConteo(
           labels: { color: "#111827", boxWidth: 16 },
         },
       },
+      onClick: (evento) => {
+        manejarClickEnGrafico(accion, evento, canvas);
+      },
     },
     plugins: [],
   });
 }
 
-/**
- * Recalcula los gráficos aplicando el filtro de acción sin tocar la base de datos.
- * Se ejecuta tanto tras una nueva consulta como al cambiar el selector de acción.
- * Impacta en la respuesta interactiva de la UI, manteniendo la app fluida durante el post-procesamiento.
- */
-function actualizarGraficosConFiltroSeleccionado(): void {
-  const accionSeleccionada = selectorAccion.value;
-  const textoAccionSeleccionada =
-    selectorAccion.options[selectorAccion.selectedIndex]?.textContent ??
-    accionSeleccionada;
-  tituloGraficoDuracion.textContent = `${TEXTO_BASE_TITULO_DURACION} - ${textoAccionSeleccionada}`;
-  tituloGraficoConteo.textContent = `${TEXTO_BASE_TITULO_CONTEO} - ${textoAccionSeleccionada}`;
+function limpiarGraficosDeAcciones(): void {
+  graficosPorAccion.forEach((instancias) => {
+    instancias.duracion?.destroy();
+    instancias.conteo?.destroy();
+  });
+  graficosPorAccion.clear();
+  vistasGraficosPorAccion.clear();
+  contenedoresGraficosPorAccion.clear();
+  contenedorGraficos.innerHTML = "";
+  contenedorGraficos.hidden = true;
+  accionesSeleccionadasParaCopiar = new Set<string>();
+  listaAccionesCopia.innerHTML = "";
+  ordenAccionesCopia = [];
+  sortableAcciones?.destroy();
+  sortableAcciones = null;
+  botonCopiarGraficos.disabled = true;
+}
 
-  estadoDashboard.registrosFiltrados = estadoDashboard.registrosCrudos.filter(
-    (registro) => {
-      if (accionSeleccionada === "todas") {
-        return true;
-      }
-
-      return registro.accion === accionSeleccionada;
-    }
-  );
-
-  if (estadoDashboard.registrosFiltrados.length === 0) {
-    mostrarEstadoDeConsulta(
-      "No hay datos para la acción seleccionada.",
-      "alerta"
-    );
-    contenedorGraficos.hidden = true;
+function actualizarListaAccionesParaCopiar(acciones: string[]): void {
+  listaAccionesCopia.innerHTML = "";
+  accionesSeleccionadasParaCopiar = new Set<string>();
+  ordenAccionesCopia = [...acciones];
+  if (acciones.length === 0) {
+    modalCopiarConfirmar.disabled = true;
     return;
   }
 
-  const { etiquetasHoras, seriesPorDia, maximoPromedio, maximoConteo } =
-    calcularMetricasParaGraficos(estadoDashboard.registrosFiltrados);
+  modalCopiarConfirmar.disabled = false;
+  acciones.forEach((accion, indice) => {
+    const item = document.createElement("label");
+    item.className = "lista-acciones-copia__item";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = "accion-copia";
+    input.value = accion;
+    input.checked = true;
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        accionesSeleccionadasParaCopiar.add(accion);
+      } else {
+        accionesSeleccionadasParaCopiar.delete(accion);
+      }
+      modalCopiarConfirmar.disabled = accionesSeleccionadasParaCopiar.size === 0;
+    });
+    accionesSeleccionadasParaCopiar.add(accion);
 
-  contenedorGraficos.hidden = false;
-  renderizarGraficoDeDuracion(etiquetasHoras, seriesPorDia, maximoPromedio);
-  renderizarGraficoDeConteo(etiquetasHoras, seriesPorDia, maximoConteo);
-  mostrarEstadoDeConsulta("Resultados listos.", "exito");
+    const contenido = document.createElement("div");
+    const titulo = document.createElement("p");
+    titulo.className = "lista-acciones-copia__accion";
+    titulo.textContent = accion;
+    contenido.appendChild(titulo);
+
+    item.appendChild(input);
+    item.appendChild(contenido);
+    listaAccionesCopia.appendChild(item);
+  });
+
+  modalCopiarConfirmar.disabled = accionesSeleccionadasParaCopiar.size === 0;
+
+  if (sortableAcciones) {
+    sortableAcciones.destroy();
+  }
+
+  if (typeof Sortable === "undefined") {
+    console.warn("Sortable no está disponible en el entorno.");
+    return;
+  }
+
+  sortableAcciones = new Sortable(listaAccionesCopia, {
+    animation: 150,
+    handle: ".lista-acciones-copia__item",
+    ghostClass: "drag-ghost",
+    onEnd: () => {
+      const nuevoOrden = Array.from(
+        listaAccionesCopia.querySelectorAll<HTMLInputElement>(
+          'input[name="accion-copia"]'
+        )
+      ).map((input) => input.value);
+      ordenAccionesCopia = nuevoOrden;
+    },
+  });
+}
+
+function renderizarGraficosParaAccion(
+  accion: string,
+  registrosAccion: RegistroNormalizado[]
+): void {
+  let vista = vistasGraficosPorAccion.get(accion);
+  if (!vista) {
+    vista = crearVistaGraficosParaAccion(accion);
+    vistasGraficosPorAccion.set(accion, vista);
+    contenedoresGraficosPorAccion.set(accion, vista.contenedor);
+    contenedorGraficos.appendChild(vista.contenedor);
+  }
+
+  vista.tituloDuracion.textContent = `${TEXTO_BASE_TITULO_DURACION} - ${accion}`;
+  vista.tituloConteo.textContent = `${TEXTO_BASE_TITULO_CONTEO} - ${accion}`;
+
+  const { etiquetasHoras, seriesPorDia, maximoPromedio, maximoConteo } =
+    calcularMetricasParaGraficos(registrosAccion);
+
+  const previos = graficosPorAccion.get(accion);
+  previos?.duracion?.destroy();
+  previos?.conteo?.destroy();
+
+  const graficoDuracion = construirGraficoDeDuracion(
+    vista.canvasDuracion,
+    etiquetasHoras,
+    seriesPorDia,
+    maximoPromedio,
+    accion
+  );
+  const graficoConteo = construirGraficoDeConteo(
+    vista.canvasConteo,
+    etiquetasHoras,
+    seriesPorDia,
+    maximoConteo,
+    accion
+  );
+
+  graficosPorAccion.set(accion, {
+    duracion: graficoDuracion,
+    conteo: graficoConteo,
+  });
+}
+
+function renderizarTodosLosGraficosPorAccion(): void {
+  limpiarGraficosDeAcciones();
+
+  const accionesConDatos: string[] = [];
+  estadoDashboard.accionesDisponibles.forEach((accion) => {
+    const registrosAccion = estadoDashboard.registrosCrudos.filter(
+      (registro) => registro.accion === accion
+    );
+    if (registrosAccion.length === 0) {
+      return;
+    }
+
+    accionesConDatos.push(accion);
+    renderizarGraficosParaAccion(accion, registrosAccion);
+  });
+
+  contenedorGraficos.hidden = accionesConDatos.length === 0;
+  botonCopiarGraficos.disabled = accionesConDatos.length === 0;
+  actualizarListaAccionesParaCopiar(accionesConDatos);
 }
 
 /**
@@ -3230,16 +3689,28 @@ inputArchivoCsv.addEventListener("change", () => {
   void manejarCargaCsv();
 });
 
-selectorAccion.addEventListener("change", () => {
-  actualizarGraficosConFiltroSeleccionado();
-});
-
 botonToggleMenu.addEventListener("click", () => {
   alternarMenuLateral();
 });
 
 botonCopiarGraficos.addEventListener("click", () => {
-  void copiarGraficosComoImagen();
+  abrirModalCopiarGraficos();
+});
+
+modalCopiarConfirmar.addEventListener("click", () => {
+  void copiarGraficosDeAccionesSeleccionadas();
+});
+
+modalCopiarCerrar?.addEventListener("click", () => {
+  cerrarModalCopiarGraficos();
+});
+
+modalCopiarCancelar.addEventListener("click", () => {
+  cerrarModalCopiarGraficos();
+});
+
+modalCopiarOverlay?.addEventListener("click", () => {
+  cerrarModalCopiarGraficos();
 });
 
 botonCopiarQueryOpensearch.addEventListener("click", () => {
@@ -3342,9 +3813,24 @@ overlayModalDetalle?.addEventListener("click", () => {
   cerrarModalDetallado();
 });
 
+modalDetallePuntoCerrar?.addEventListener("click", () => {
+  cerrarModalDetallePunto();
+});
+
+overlayModalDetallePunto?.addEventListener("click", () => {
+  cerrarModalDetallePunto();
+});
+
 itemsMenuSeccion.forEach((item) => {
   item.addEventListener("click", () => {
     const destino = item.dataset.section as SeccionActiva | undefined;
+    if (
+      item.classList.contains("menu-secundario__item--deshabilitado") ||
+      item.getAttribute("aria-disabled") === "true"
+    ) {
+      return;
+    }
+
     if (!destino) {
       return;
     }
